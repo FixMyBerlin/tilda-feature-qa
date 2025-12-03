@@ -1,0 +1,12 @@
+---
+globs: *.tsx,*.ts
+alwaysApply: false
+---
+
+## TypeScript
+
+- Do not use explicit return types unless absolutely necessary to resolve typing issues.
+
+## CSS / Tailwind CSS
+
+- Always use `size-5` instead of `h-5 w-5`
