@@ -7,7 +7,7 @@
     "dev:all": "bun run dev:tailwind & bun --hot server.ts",
     "dev:tailwind": "tailwindcss -i ./styles/index.css -o ./styles/output.css --watch",
     "build:css": "tailwindcss -i ./styles/index.css -o ./styles/output.css",
-    "build:app": "bun build ./index.html --outdir ./build",
+    "build:app": "bun build ./index.html --outdir ./build --sourcemap",
     "build": "bun run build:css && bun run build:app",
     "format": "biome format --write .",
     "lint": "biome lint .",

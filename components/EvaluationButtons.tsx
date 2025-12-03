@@ -1,19 +1,36 @@
 import { useEffect, useState } from 'react'
-import { evaluateFeature, getEvaluation } from '../lib/db'
+import { evaluateFeature, getEvaluation, type EvaluationSource } from '../lib/db'
+import { statusTranslation } from '../lib/translations'
+import { useFeatureStore } from '../store/useFeatureStore'
+import { SourceSelector } from './SourceSelector'
 
 type EvaluationButtonsProps = {
   featureId: string
+  featureProperties?: Record<string, unknown>
   onEvaluated: () => void
 }
 
-export function EvaluationButtons({ featureId, onEvaluated }: EvaluationButtonsProps) {
+export function EvaluationButtons({
+  featureId,
+  featureProperties,
+  onEvaluated,
+}: EvaluationButtonsProps) {
   const [comment, setComment] = useState('')
   const [currentEvaluation, setCurrentEvaluation] = useState<{
     status: 'good' | 'bad'
     comment?: string
+    source?: EvaluationSource
+    mapillaryId?: string
   } | null>(null)
+  const { selectedMapillaryId, setSelectedMapillaryId } = useFeatureStore()
   const [loading, setLoading] = useState(false)
   const [hasText, setHasText] = useState(false)
+  const [source, setSource] = useState<EvaluationSource>('aerial_imagery')
+
+  // Prioritize selectedMapillaryId from store (user's current selection) over feature property
+  // The feature property is only used as a fallback/default when nothing is selected
+  const propMapillaryId = featureProperties?.mapillary_id as string | undefined
+  const mapillaryId = selectedMapillaryId || propMapillaryId || undefined
 
   useEffect(() => {
     if (featureId) {
@@ -22,22 +39,60 @@ export function EvaluationButtons({ featureId, onEvaluated }: EvaluationButtonsP
           setCurrentEvaluation({
             status: evalData.status,
             comment: evalData.comment,
+            source: evalData.source,
+            mapillaryId: evalData.mapillaryId,
           })
           setComment(evalData.comment || '')
+          // If evaluation has mapillary ID, use 'mapillary' source, otherwise use saved source
+          setSource(evalData.mapillaryId ? 'mapillary' : (evalData.source || 'aerial_imagery'))
+          if (evalData.mapillaryId) {
+            setSelectedMapillaryId(evalData.mapillaryId)
+          }
         } else {
           setCurrentEvaluation(null)
           setComment('')
           setHasText(false)
+          // If feature has mapillary_id property, default to 'mapillary' source
+          setSource(mapillaryId ? 'mapillary' : 'aerial_imagery')
         }
       })
     }
-  }, [featureId])
+  }, [featureId, setSelectedMapillaryId, mapillaryId])
+
+  // Automatically set source to 'mapillary' when mapillary ID becomes available and there's no evaluation
+  // This handles the case when user clicks a new mapillary image
+  useEffect(() => {
+    if (mapillaryId && !currentEvaluation) {
+      setSource('mapillary')
+    }
+  }, [mapillaryId, currentEvaluation])
+
+  const handleSourceChange = (newSource: EvaluationSource, newMapillaryId?: string) => {
+    setSource(newSource)
+    if (newSource === 'mapillary' && newMapillaryId) {
+      setSelectedMapillaryId(newMapillaryId)
+    } else if (newSource !== 'mapillary') {
+      // Don't clear store, just don't use it for non-mapillary sources
+    }
+  }
 
   const handleEvaluate = async (status: 'good' | 'bad') => {
     setLoading(true)
     try {
-      await evaluateFeature(featureId, status, comment || undefined)
-      setCurrentEvaluation({ status, comment: comment || undefined })
+      const finalMapillaryId = source === 'mapillary' ? mapillaryId : undefined
+      await evaluateFeature(
+        featureId,
+        status,
+        comment || undefined,
+        source,
+        finalMapillaryId || undefined,
+      )
+      setCurrentEvaluation({
+        status,
+        comment: comment || undefined,
+        source,
+        mapillaryId: finalMapillaryId || undefined,
+      })
       onEvaluated()
     } catch (err) {
       console.error('Error evaluating feature:', err)
@@ -68,13 +123,20 @@ export function EvaluationButtons({ featureId, onEvaluated }: EvaluationButtonsP
         >
           <span className="font-semibold">Current: </span>
           <span className={currentEvaluation.status === 'good' ? 'text-green-700' : 'text-red-700'}>
-            {currentEvaluation.status === 'good' ? 'Good' : 'Bad'}
+            {statusTranslation[currentEvaluation.status]}
           </span>
           {currentEvaluation.comment && (
             <div className="mt-1 text-gray-700">{currentEvaluation.comment}</div>
           )}
         </div>
       )}
+
+      <SourceSelector
+        featureId={featureId}
+        currentSource={source}
+        currentMapillaryId={mapillaryId}
+        onSourceChange={handleSourceChange}
+      />
 
       <div className="flex gap-3">
         <button
@@ -86,7 +148,7 @@ export function EvaluationButtons({ featureId, onEvaluated }: EvaluationButtonsP
               : 'bg-green-100 text-green-700 hover:bg-green-200'
           } disabled:opacity-50`}
         >
-          ✓ Good
+          ✓ {statusTranslation.good}
         </button>
         <button
           onClick={() => handleEvaluate('bad')}
@@ -97,7 +159,7 @@ export function EvaluationButtons({ featureId, onEvaluated }: EvaluationButtonsP
               : 'bg-red-100 text-red-700 hover:bg-red-200'
           } disabled:opacity-50`}
         >
-          ✗ Bad
+          ✗ {statusTranslation.bad}
         </button>
       </div>
 

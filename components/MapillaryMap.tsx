@@ -390,6 +390,55 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
               }
             />
           </Source>
+
+          {/* Current feature geometry - transparent thick line/area (below mapillary layers) */}
+          <Source
+            id="current-feature"
+            type="geojson"
+            data={{
+              type: 'FeatureCollection',
+              features: [
+                {
+                  type: 'Feature',
+                  geometry,
+                  properties: {},
+                },
+              ],
+            }}
+          >
+            <Layer
+              id="current-feature-line"
+              type="line"
+              paint={{
+                'line-color': '#ec4899', // pink-500 to match main map
+                'line-width': 8,
+                'line-opacity': 0.15,
+              }}
+              filter={['==', '$type', 'LineString']}
+            />
+            <Layer
+              id="current-feature-fill"
+              type="fill"
+              paint={{
+                'fill-color': '#ec4899',
+                'fill-opacity': 0.08,
+              }}
+              filter={['==', '$type', 'Polygon']}
+            />
+            <Layer
+              id="current-feature-point"
+              type="circle"
+              paint={{
+                'circle-color': '#ec4899',
+                'circle-radius': 12,
+                'circle-opacity': 0.2,
+                'circle-stroke-width': 2,
+                'circle-stroke-color': '#ec4899',
+                'circle-stroke-opacity': 0.3,
+              }}
+              filter={['==', '$type', 'Point']}
+            />
+          </Source>
         </Map>
       </div>
 

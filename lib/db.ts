@@ -6,10 +6,14 @@ export interface FeatureRecord {
   sortOrder: number // Order for fast retrieval
 }
 
+export type EvaluationSource = 'aerial_imagery' | 'mapillary' | 'other'
+
 export interface EvaluationRecord {
   featureId: string
   status: 'good' | 'bad'
   comment?: string
+  source: EvaluationSource
+  mapillaryId?: string
   timestamp: number
 }
 
@@ -19,10 +23,33 @@ class FeatureReviewDB extends Dexie {
 
   constructor() {
     super('FeatureReviewDB')
+    this.version(1).stores({
+      features: 'id, sortOrder',
+      evaluations: 'featureId',
+    })
     this.version(2).stores({
       features: 'id, sortOrder',
       evaluations: 'featureId',
     })
+    this.version(3)
+      .stores({
+        features: 'id, sortOrder',
+        evaluations: 'featureId',
+      })
+      .upgrade(async (tx) => {
+        // Migrate existing evaluations to include source field
+        const evaluations = await tx.table('evaluations').toArray()
+        await Promise.all(
+          evaluations.map((evaluation) => {
+            if (!evaluation.source) {
+              return tx.table('evaluations').update(evaluation.featureId, {
+                ...evaluation,
+                source: 'aerial_imagery' as EvaluationSource,
+              })
+            }
+          }),
+        )
+      })
   }
 }
 
@@ -84,11 +111,19 @@ export async function getEvaluation(featureId: string) {
   return await db.evaluations.get(featureId)
 }
 
-export async function evaluateFeature(featureId: string, status: 'good' | 'bad', comment?: string) {
+export async function evaluateFeature(
+  featureId: string,
+  status: 'good' | 'bad',
+  comment?: string,
+  source: EvaluationSource = 'aerial_imagery',
+  mapillaryId?: string,
+) {
   await db.evaluations.put({
     featureId,
     status,
     comment,
+    source,
+    mapillaryId,
     timestamp: Date.now(),
   })
 }
@@ -113,6 +148,8 @@ export async function exportEvaluatedFeatures() {
           ...feature.properties,
           evaluation_status: evaluation.status,
           evaluation_comment: evaluation.comment,
+          evaluation_source: evaluation.source,
+          evaluation_mapillary_id: evaluation.mapillaryId,
           evaluation_timestamp: evaluation.timestamp,
         },
       }

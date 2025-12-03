@@ -213,6 +213,7 @@ export function FeatureViewer() {
         <div className="mb-4">
           <EvaluationButtons
             featureId={currentFeature.properties?.id as string}
+            featureProperties={currentFeature.properties}
             onEvaluated={handleEvaluated}
           />
         </div>

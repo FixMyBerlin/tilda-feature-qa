@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getEvaluation } from '../lib/db'
+import { statusTranslation } from '../lib/translations'
 import { Mapillary } from './Mapillary'
 
 type PropertiesPanelProps = {
@@ -43,7 +44,8 @@ export function PropertiesPanel({ feature }: PropertiesPanelProps) {
           <div className="font-semibold text-sm">
             Status:{' '}
             <span className={evaluation.status === 'good' ? 'text-green-700' : 'text-red-700'}>
-              {evaluation.status === 'good' ? '✓ Good' : '✗ Bad'}
+              {evaluation.status === 'good' ? '✓ ' : '✗ '}
+              {statusTranslation[evaluation.status]}
             </span>
           </div>
           {evaluation.comment && (
@@ -53,7 +55,7 @@ export function PropertiesPanel({ feature }: PropertiesPanelProps) {
       )}
 
       {linkKeys.length > 0 && (
-        <div className="space-y-1">
+        <div className="flex flex-wrap gap-2">
           {linkKeys.map((key) => {
             const url = feature.properties?.[key] as string | null
             if (!url) return null
@@ -63,7 +65,7 @@ export function PropertiesPanel({ feature }: PropertiesPanelProps) {
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block rounded bg-blue-50 px-3 py-2 text-blue-700 text-sm transition-colors hover:bg-blue-100"
+                className="rounded bg-blue-50 px-3 py-2 text-blue-700 text-sm transition-colors hover:bg-blue-100"
               >
                 {key
                   .replace('_link', '')
