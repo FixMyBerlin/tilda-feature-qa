@@ -3,7 +3,6 @@ import type { EvaluationSource } from '../lib/db'
 
 type FeatureStore = {
   allFeatures: GeoJSON.Feature[]
-  showOnlyUnevaluated: boolean
   selectedMapillaryId: string | null
   source: EvaluationSource
   mapLoaded: boolean
@@ -16,7 +15,6 @@ type FeatureStore = {
   }
   useApiPreview: boolean
   setAllFeatures: (features: GeoJSON.Feature[]) => void
-  setShowOnlyUnevaluated: (show: boolean) => void
   setSelectedMapillaryId: (id: string | null) => void
   setSource: (source: EvaluationSource) => void
   setMapLoaded: (loaded: boolean) => void
@@ -29,7 +27,6 @@ type FeatureStore = {
 
 export const useFeatureStore = create<FeatureStore>((set) => ({
   allFeatures: [],
-  showOnlyUnevaluated: true,
   selectedMapillaryId: null,
   source: 'aerial_imagery',
   mapLoaded: false,
@@ -42,7 +39,6 @@ export const useFeatureStore = create<FeatureStore>((set) => ({
   },
   useApiPreview: false,
   setAllFeatures: (features: GeoJSON.Feature[]) => set({ allFeatures: features }),
-  setShowOnlyUnevaluated: (show: boolean) => set({ showOnlyUnevaluated: show }),
   setSelectedMapillaryId: (id: string | null) => set({ selectedMapillaryId: id }),
   setSource: (source: EvaluationSource) => set({ source }),
   setMapLoaded: (loaded: boolean) => set({ mapLoaded: loaded }),

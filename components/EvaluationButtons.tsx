@@ -17,6 +17,7 @@ type EvaluationButtonsProps = {
   onPrev?: () => void
   onNext?: () => void
   canNavigate?: boolean
+  isEvaluated?: boolean
 }
 
 export function EvaluationButtons({
@@ -27,6 +28,7 @@ export function EvaluationButtons({
   onPrev,
   onNext,
   canNavigate = false,
+  isEvaluated = false,
 }: EvaluationButtonsProps) {
   const [comment, setComment] = useState(initialEvaluation?.comment || '')
   const [currentEvaluation, setCurrentEvaluation] = useState(initialEvaluation || null)
@@ -91,30 +93,36 @@ export function EvaluationButtons({
 
   return (
     <div className="space-y-3 rounded-lg bg-white p-4 shadow">
-      {currentEvaluation && (
-        <div
-          className={`rounded p-2 text-sm ${
-            currentEvaluation.status === 'good'
-              ? 'border border-green-200 bg-green-50'
-              : 'border border-red-200 bg-red-50'
-          }`}
-        >
-          <span className="font-semibold">Current: </span>
-          <span className={currentEvaluation.status === 'good' ? 'text-green-700' : 'text-red-700'}>
-            {statusTranslation[currentEvaluation.status]}
-          </span>
-          {currentEvaluation.comment && (
-            <div className="mt-1 text-gray-700">{currentEvaluation.comment}</div>
-          )}
+      <div className="flex items-center justify-between">
+        <SourceSelector
+          featureId={featureId}
+          currentSource={source}
+          currentMapillaryId={mapillaryId}
+          onSourceChange={handleSourceChange}
+        />
+        {isEvaluated && currentEvaluation ? (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">Existing evaluation:</span>
+            <span
+              className={`rounded px-2 py-1 text-sm font-medium ${
+                currentEvaluation.status === 'good'
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-red-100 text-red-700'
+              }`}
+            >
+              {statusTranslation[currentEvaluation.status]}
+            </span>
+          </div>
+        ) : (
+          <span className="rounded bg-gray-100 px-2 py-1 text-sm text-gray-600">Not yet evaluated</span>
+        )}
+      </div>
+
+      {isEvaluated && currentEvaluation?.comment && (
+        <div className="rounded border border-gray-200 bg-gray-50 p-2 text-sm text-gray-700">
+          {currentEvaluation.comment}
         </div>
       )}
-
-      <SourceSelector
-        featureId={featureId}
-        currentSource={source}
-        currentMapillaryId={mapillaryId}
-        onSourceChange={handleSourceChange}
-      />
 
       <div className="flex gap-3">
         <button

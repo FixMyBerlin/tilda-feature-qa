@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useFeatureFromUrl } from '../hooks/useFeatureFromUrl'
 import {
   clearAllData,
@@ -27,11 +27,20 @@ export function FeatureViewer() {
   const {
     allFeatures,
     setAllFeatures,
-    showOnlyUnevaluated,
-    setShowOnlyUnevaluated,
     setSelectedMapillaryId,
     setSource,
   } = useFeatureStore()
+
+  // Helper function to navigate to a feature
+  const navigateToFeature = useCallback(
+    (feature: GeoJSON.Feature) => {
+      setSelectedMapillaryId(null)
+      const propMapillaryId = feature.properties?.mapillary_id as string | undefined
+      setSource(propMapillaryId ? 'mapillary' : 'aerial_imagery')
+      setFeatureId(feature)
+    },
+    [setSelectedMapillaryId, setSource, setFeatureId],
+  )
 
   // Initialize: load all features and count on mount, set first unevaluated feature if none in URL
   useEffect(() => {
@@ -46,37 +55,11 @@ export function FeatureViewer() {
       if (!currentFeature && features.length > 0) {
         const unevaluatedFeatures = await getUnevaluatedFeatures()
         const featureToUse = unevaluatedFeatures.length > 0 ? unevaluatedFeatures[0] : features[0]
-        setSelectedMapillaryId(null)
-        const propMapillaryId = featureToUse.properties?.mapillary_id as string | undefined
-        setSource(propMapillaryId ? 'mapillary' : 'aerial_imagery')
-        setFeatureId(featureToUse)
+        navigateToFeature(featureToUse)
       }
     }
     loadData()
-  }, [currentFeature, setAllFeatures, setFeatureId, setSelectedMapillaryId, setSource])
-
-  const [filteredFeaturesList, setFilteredFeaturesList] = useState<GeoJSON.Feature[]>([])
-
-  // Update filtered list when allFeatures changes (after initial load or data refresh)
-  useEffect(() => {
-    if (allFeatures.length === 0) return
-
-    if (showOnlyUnevaluated) {
-      getUnevaluatedFeatures().then(setFilteredFeaturesList)
-    } else {
-      setFilteredFeaturesList(allFeatures)
-    }
-  }, [allFeatures, showOnlyUnevaluated])
-
-  const handleShowOnlyUnevaluatedChange = async (checked: boolean) => {
-    setShowOnlyUnevaluated(checked)
-    if (checked) {
-      const features = await getUnevaluatedFeatures()
-      setFilteredFeaturesList(features)
-    } else {
-      setFilteredFeaturesList(allFeatures)
-    }
-  }
+  }, [currentFeature, setAllFeatures, navigateToFeature])
 
   // Load evaluation when feature changes (reacts to URL changes via useFeatureFromUrl)
   // Feature lookup is synchronous from store, but evaluation loading is async
@@ -106,22 +89,22 @@ export function FeatureViewer() {
         setCurrentEvaluation(null)
         const propMapillaryId = currentFeature.properties?.mapillary_id as string | undefined
         setSource(propMapillaryId ? 'mapillary' : 'aerial_imagery')
+        // Note: Don't navigate here, just update source
       }
     })
   }, [currentFeature, setSelectedMapillaryId, setSource])
 
-  const currentIndex = useMemo(() => {
+  // Find current index in allFeatures (for prev navigation)
+  const currentIndexInAll = useMemo(() => {
     if (!currentFeature) return -1
     const id = currentFeature.properties?.id as string
-    return filteredFeaturesList.findIndex((f) => (f.properties?.id as string) === id)
-  }, [currentFeature, filteredFeaturesList])
+    return allFeatures.findIndex((f) => (f.properties?.id as string) === id)
+  }, [currentFeature, allFeatures])
 
   const handleEvaluated = async () => {
     if (!currentFeature) return
 
-    const newFiltered = showOnlyUnevaluated ? await getUnevaluatedFeatures() : allFeatures
     const newCount = await getEvaluatedCount()
-    setFilteredFeaturesList(newFiltered)
     setEvaluatedCount(newCount)
 
     // Reload current evaluation after evaluation
@@ -136,36 +119,48 @@ export function FeatureViewer() {
       })
     }
 
-    const currentPos = newFiltered.findIndex((f) => (f.properties?.id as string) === currentId)
+    // After evaluation, automatically go to next nearest unevaluated feature in allFeatures
+    const unevaluatedFeatures = await getUnevaluatedFeatures()
+    if (unevaluatedFeatures.length === 0) return
 
-    if (newFiltered.length > 0) {
-      const nextIndex = currentPos >= 0 && currentPos < newFiltered.length - 1 ? currentPos + 1 : 0
-      const nextFeature = newFiltered[nextIndex]
-      setSelectedMapillaryId(null)
-      const propMapillaryId = nextFeature.properties?.mapillary_id as string | undefined
-      setSource(propMapillaryId ? 'mapillary' : 'aerial_imagery')
-      setFeatureId(nextFeature)
+    // Find current position in allFeatures
+    const currentPos = currentIndexInAll
+    if (currentPos === -1) return
+
+    // Find next unevaluated feature starting from current position + 1, wrapping around
+    const unevaluatedIds = new Set(unevaluatedFeatures.map((f) => f.properties?.id as string))
+
+    // Search forward from current position
+    for (let i = currentPos + 1; i < allFeatures.length; i++) {
+      const featureId = allFeatures[i].properties?.id as string
+      if (unevaluatedIds.has(featureId)) {
+        navigateToFeature(allFeatures[i])
+        return
+      }
+    }
+
+    // If not found forward, search from beginning (wrap around)
+    for (let i = 0; i < currentPos; i++) {
+      const featureId = allFeatures[i].properties?.id as string
+      if (unevaluatedIds.has(featureId)) {
+        navigateToFeature(allFeatures[i])
+        return
+      }
     }
   }
 
+  // Prev: Always go to previous feature in full list (regardless of evaluation status)
   const handlePrev = () => {
-    if (filteredFeaturesList.length === 0) return
-    const prevIndex = currentIndex <= 0 ? filteredFeaturesList.length - 1 : currentIndex - 1
-    const prevFeature = filteredFeaturesList[prevIndex]
-    setSelectedMapillaryId(null)
-    const propMapillaryId = prevFeature.properties?.mapillary_id as string | undefined
-    setSource(propMapillaryId ? 'mapillary' : 'aerial_imagery')
-    setFeatureId(prevFeature)
+    if (allFeatures.length === 0) return
+    const prevIndex = currentIndexInAll <= 0 ? allFeatures.length - 1 : currentIndexInAll - 1
+    navigateToFeature(allFeatures[prevIndex])
   }
 
+  // Next: Always go to next feature in full list (regardless of evaluation status)
   const handleNext = () => {
-    if (filteredFeaturesList.length === 0) return
-    const nextIndex = currentIndex >= filteredFeaturesList.length - 1 ? 0 : currentIndex + 1
-    const nextFeature = filteredFeaturesList[nextIndex]
-    setSelectedMapillaryId(null)
-    const propMapillaryId = nextFeature.properties?.mapillary_id as string | undefined
-    setSource(propMapillaryId ? 'mapillary' : 'aerial_imagery')
-    setFeatureId(nextFeature)
+    if (allFeatures.length === 0) return
+    const nextIndex = currentIndexInAll >= allFeatures.length - 1 ? 0 : currentIndexInAll + 1
+    navigateToFeature(allFeatures[nextIndex])
   }
 
   const handleExport = async () => {
@@ -221,15 +216,6 @@ export function FeatureViewer() {
         <div className="mx-auto flex max-w-app items-center justify-between py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
             <h1 className="font-bold text-xl">Feature Review</h1>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={showOnlyUnevaluated}
-                onChange={(e) => handleShowOnlyUnevaluatedChange(e.target.checked)}
-                className="rounded"
-              />
-              <span className="text-gray-700 text-sm">Show only unevaluated</span>
-            </label>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-gray-600 text-sm">
@@ -262,7 +248,8 @@ export function FeatureViewer() {
             onEvaluated={handleEvaluated}
             onPrev={handlePrev}
             onNext={handleNext}
-            canNavigate={filteredFeaturesList.length > 0}
+            canNavigate={allFeatures.length > 0}
+            isEvaluated={!!currentEvaluation}
           />
         </div>
         <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
