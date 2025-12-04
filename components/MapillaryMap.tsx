@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { MapLayerMouseEvent, ViewState } from 'react-map-gl/maplibre'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { MapLayerMouseEvent } from 'react-map-gl/maplibre'
+import type { FilterSpecification } from 'maplibre-gl'
 import Map, { Layer, Source } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { bbox } from '@turf/turf'
 import { useBackgroundLayer } from '../hooks/useBackgroundLayer'
-import { MAPILLARY_ACCESS_TOKEN } from '../lib/constants'
+import { useMapState } from '../hooks/useMapState'
+import { CURRENT_FEATURE_COLOR, MAPILLARY_ACCESS_TOKEN } from '../lib/constants'
+import { getInitialMapStateFromFeature } from '../lib/mapUtils'
 import { createMapStyleFromLayer } from '../lib/createMapStyle'
+import { useFeatureStore } from '../store/useFeatureStore'
 
 type MapillaryMapProps = {
   geometry: GeoJSON.Geometry
@@ -16,58 +19,89 @@ type MapillaryMapProps = {
 export function MapillaryMap({ geometry, onImageClick, selectedImageId }: MapillaryMapProps) {
   const { currentLayer } = useBackgroundLayer()
   const mapStyle = useMemo(() => createMapStyleFromLayer(currentLayer), [currentLayer])
+  const { mapillaryTimePeriods, setMapillaryTimePeriod } = useFeatureStore()
 
   if (geometry.type !== 'LineString') {
     return null
   }
 
-  const initialViewState = useMemo(() => {
-    try {
-      const bounds = bbox({ type: 'Feature', geometry, properties: {} })
-      const centerLng = (bounds[0]! + bounds[2]!) / 2
-      const centerLat = (bounds[1]! + bounds[3]!) / 2
+  // Get initial map state from feature bbox
+  const feature = { type: 'Feature' as const, geometry, properties: {} }
+  const initialMapState = useMemo(() => getInitialMapStateFromFeature(feature), [geometry])
 
-      const width = bounds[2]! - bounds[0]!
-      const height = bounds[3]! - bounds[1]!
-      const maxDimension = Math.max(width, height)
+  // Sync map state with URL (same as main map)
+  const [mapState, setMapState] = useMapState(initialMapState)
 
-      // Approximate zoom level (rough calculation)
-      let zoom = 14
-      if (maxDimension > 0.1) zoom = 10
-      else if (maxDimension > 0.05) zoom = 12
-      else if (maxDimension > 0.01) zoom = 14
-      else zoom = 16
+  const viewState = mapState || initialMapState
 
-      return {
-        longitude: centerLng,
-        latitude: centerLat,
-        zoom,
-        pitch: 0,
-        bearing: 0,
-        padding: { top: 0, bottom: 0, left: 0, right: 0 },
-      } as ViewState
-    } catch {
-      return {
-        longitude: 13.4,
-        latitude: 52.5,
-        zoom: 14,
-        pitch: 0,
-        bearing: 0,
-        padding: { top: 0, bottom: 0, left: 0, right: 0 },
-      } as ViewState
-    }
-  }, [geometry])
-
-  const [viewState, setViewState] = useState<ViewState>(initialViewState)
-
-  // Update viewState when geometry changes (new feature)
-  useEffect(() => {
-    setViewState(initialViewState)
-  }, [initialViewState])
-
+  const sixMonthsAgo = Date.now() - 6 * 30 * 24 * 60 * 60 * 1000
   const oneYearAgo = Date.now() - 1 * 365 * 24 * 60 * 60 * 1000
   const twoYearsAgo = Date.now() - 2 * 365 * 24 * 60 * 60 * 1000
   const threeYearsAgo = Date.now() - 3 * 365 * 24 * 60 * 60 * 1000
+
+  // Build filter based on selected time periods
+  // Show images newer than the oldest selected threshold, or older if enabled
+  const buildTimeFilter = useMemo(() => {
+    const thresholds = [
+      mapillaryTimePeriods.threeYears && threeYearsAgo,
+      mapillaryTimePeriods.twoYears && twoYearsAgo,
+      mapillaryTimePeriods.oneYear && oneYearAgo,
+      mapillaryTimePeriods.sixMonths && sixMonthsAgo,
+    ].filter((t): t is number => typeof t === 'number')
+
+    if (thresholds.length === 0 && !mapillaryTimePeriods.older) {
+      return ['literal', false] as FilterSpecification
+    }
+
+    if (mapillaryTimePeriods.older && thresholds.length === 0) {
+      // Only show older data
+      return ['<', ['get', 'captured_at'], threeYearsAgo] as FilterSpecification
+    }
+
+    if (mapillaryTimePeriods.older) {
+      // Show both newer than threshold AND older than 3 years
+      const oldestThreshold = Math.min(...thresholds)
+      return [
+        'any',
+        ['>', ['get', 'captured_at'], oldestThreshold],
+        ['<', ['get', 'captured_at'], threeYearsAgo],
+      ] as FilterSpecification
+    }
+
+    const oldestThreshold = Math.min(...thresholds)
+    return ['>', ['get', 'captured_at'], oldestThreshold] as FilterSpecification
+  }, [mapillaryTimePeriods, sixMonthsAgo, oneYearAgo, twoYearsAgo, threeYearsAgo])
+
+  // Build color step expression based on selected time periods
+  const buildColorStep = useMemo(() => {
+    const steps: unknown[] = ['step', ['get', 'captured_at']]
+
+    // Default color (oldest - 3+ years)
+    if (mapillaryTimePeriods.older) {
+      steps.push('#9ca3af', threeYearsAgo, '#9ca3af') // gray-400 for older data
+    } else if (mapillaryTimePeriods.threeYears) {
+      steps.push('#3b82f6', threeYearsAgo, '#3b82f6')
+    } else {
+      steps.push('transparent', threeYearsAgo, 'transparent')
+    }
+
+    if (mapillaryTimePeriods.twoYears) {
+      steps.push(twoYearsAgo, '#FFC01B')
+    } else {
+      steps.push(twoYearsAgo, 'transparent')
+    }
+
+    if (mapillaryTimePeriods.oneYear) {
+      steps.push(oneYearAgo, '#05CB63')
+    } else {
+      steps.push(oneYearAgo, 'transparent')
+    }
+
+    // Always show 6 months (dark green)
+    steps.push(sixMonthsAgo, '#15803d')
+
+    return steps as any
+  }, [mapillaryTimePeriods, sixMonthsAgo, oneYearAgo, twoYearsAgo, threeYearsAgo])
 
   const [cursorStyle, setCursorStyle] = useState('grab')
 
@@ -89,7 +123,10 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
         <Map
           id="mapillary-map"
           {...viewState}
-          onMove={(evt) => setViewState(evt.viewState)}
+          onMove={(evt) => {
+            const { longitude, latitude, zoom } = evt.viewState
+            setMapState({ longitude, latitude, zoom })
+          }}
           style={{ width: '100%', height: '100%' }}
           mapStyle={mapStyle}
           attributionControl={true}
@@ -101,13 +138,59 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
           onClick={(e) => {
             if (e.features && e.features.length > 0) {
               const feature = e.features[0]
-              const imageId = feature?.properties?.id as string | undefined
-              if (imageId) {
+              const imageId = feature?.properties?.id
+              if (imageId !== undefined && imageId !== null) {
                 onImageClick(String(imageId))
               }
             }
           }}
         >
+          {/* Current feature geometry - rendered first so mapillary points appear above */}
+          <Source
+            id="current-feature"
+            type="geojson"
+            data={{
+              type: 'FeatureCollection',
+              features: [
+                {
+                  type: 'Feature',
+                  geometry,
+                  properties: {},
+                },
+              ],
+            }}
+          >
+            <Layer
+              id="current-feature-line"
+              type="line"
+              paint={{
+                'line-color': CURRENT_FEATURE_COLOR,
+                'line-width': 4,
+                'line-opacity': 0.9,
+              }}
+              filter={['==', '$type', 'LineString']}
+            />
+            <Layer
+              id="current-feature-fill"
+              type="fill"
+              paint={{
+                'fill-color': CURRENT_FEATURE_COLOR,
+                'fill-opacity': 0.3,
+              }}
+              filter={['==', '$type', 'Polygon']}
+            />
+            <Layer
+              id="current-feature-point"
+              type="circle"
+              paint={{
+                'circle-color': CURRENT_FEATURE_COLOR,
+                'circle-radius': 8,
+                'circle-opacity': 0.9,
+              }}
+              filter={['==', '$type', 'Point']}
+            />
+          </Source>
+
           {/* Mapillary coverage tiles - https://tiles.mapillary.com/maps/vtp/mly1_public/2/{z}/{x}/{y}
             Tiles are only available at zoom 14, so we use overzooming for higher zooms.
             Contains: image layer (points) and sequence layer (lines)
@@ -130,17 +213,7 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
                 'line-sort-key': ['get', 'captured_at'],
               }}
               paint={{
-                'line-color': [
-                  'step',
-                  ['get', 'captured_at'],
-                  '#3b82f6', // 2-3 years: blue (default for oldest)
-                  threeYearsAgo,
-                  '#3b82f6', // 2-3 years: blue
-                  twoYearsAgo,
-                  '#FFC01B', // 1-2 years: yellow
-                  oneYearAgo,
-                  '#05CB63', // <1 year: green
-                ],
+                'line-color': buildColorStep,
                 'line-opacity': [
                   'interpolate',
                   ['linear'],
@@ -164,7 +237,7 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
                   1.3,
                 ],
               }}
-              filter={['case', ['<', ['get', 'captured_at'], threeYearsAgo], false, true]}
+              filter={buildTimeFilter}
               minzoom={10}
             />
 
@@ -192,25 +265,15 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
                   5,
                 ],
                 'circle-blur': 0.5,
-                'circle-color': [
-                  'step',
-                  ['get', 'captured_at'],
-                  '#3b82f6', // 2-3 years: blue (default for oldest)
-                  threeYearsAgo,
-                  '#3b82f6', // 2-3 years: blue
-                  twoYearsAgo,
-                  '#FFC01B', // 1-2 years: yellow
-                  oneYearAgo,
-                  '#05CB63', // <1 year: green
-                ],
+                'circle-color': buildColorStep,
                 'circle-stroke-width': 1,
                 'circle-stroke-color': '#fff',
               }}
               filter={[
                 'all',
-                ['case', ['<', ['get', 'captured_at'], threeYearsAgo], false, true],
+                buildTimeFilter,
                 ['!=', ['get', 'is_pano'], true],
-              ]}
+              ] as FilterSpecification}
             />
 
             {/* Panorama images - sorted by captured_at (newest on top) */}
@@ -237,25 +300,15 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
                   5,
                 ],
                 'circle-blur': 0.5,
-                'circle-color': [
-                  'step',
-                  ['get', 'captured_at'],
-                  '#3b82f6', // 2-3 years: blue (default for oldest)
-                  threeYearsAgo,
-                  '#3b82f6', // 2-3 years: blue
-                  twoYearsAgo,
-                  '#FFC01B', // 1-2 years: yellow
-                  oneYearAgo,
-                  '#05CB63', // <1 year: green
-                ],
+                'circle-color': buildColorStep,
                 'circle-stroke-width': 1,
                 'circle-stroke-color': '#fff',
               }}
               filter={[
                 'all',
-                ['case', ['<', ['get', 'captured_at'], threeYearsAgo], false, true],
+                buildTimeFilter,
                 ['==', ['get', 'is_pano'], true],
-              ]}
+              ] as FilterSpecification}
             />
 
             {/* Click target layer (transparent, larger for easier clicking) - sorted by captured_at (newest on top) */}
@@ -271,7 +324,7 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
                 'circle-radius': 10,
                 'circle-color': 'transparent',
               }}
-              filter={['case', ['<', ['get', 'captured_at'], threeYearsAgo], false, true]}
+              filter={buildTimeFilter}
             />
 
             {/* Panorama rings - sorted by captured_at (newest on top) */}
@@ -299,24 +352,14 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
                 ],
                 'circle-color': 'transparent',
                 'circle-stroke-width': 2,
-                'circle-stroke-color': [
-                  'step',
-                  ['get', 'captured_at'],
-                  '#3b82f6', // 2-3 years: blue (default for oldest)
-                  threeYearsAgo,
-                  '#3b82f6', // 2-3 years: blue
-                  twoYearsAgo,
-                  '#FFC01B', // 1-2 years: yellow
-                  oneYearAgo,
-                  '#05CB63', // <1 year: green
-                ],
+                'circle-stroke-color': buildColorStep,
                 'circle-stroke-opacity': 0.8,
               }}
               filter={[
                 'all',
-                ['case', ['<', ['get', 'captured_at'], threeYearsAgo], false, true],
+                buildTimeFilter,
                 ['==', ['get', 'is_pano'], true],
-              ]}
+              ] as FilterSpecification}
             />
 
             {/* Highlight layer for selected image - renders on top */}
@@ -390,82 +433,77 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
               }
             />
           </Source>
-
-          {/* Current feature geometry - transparent thick line/area (below mapillary layers) */}
-          <Source
-            id="current-feature"
-            type="geojson"
-            data={{
-              type: 'FeatureCollection',
-              features: [
-                {
-                  type: 'Feature',
-                  geometry,
-                  properties: {},
-                },
-              ],
-            }}
-          >
-            <Layer
-              id="current-feature-line"
-              type="line"
-              paint={{
-                'line-color': '#ec4899', // pink-500 to match main map
-                'line-width': 8,
-                'line-opacity': 0.15,
-              }}
-              filter={['==', '$type', 'LineString']}
-            />
-            <Layer
-              id="current-feature-fill"
-              type="fill"
-              paint={{
-                'fill-color': '#ec4899',
-                'fill-opacity': 0.08,
-              }}
-              filter={['==', '$type', 'Polygon']}
-            />
-            <Layer
-              id="current-feature-point"
-              type="circle"
-              paint={{
-                'circle-color': '#ec4899',
-                'circle-radius': 12,
-                'circle-opacity': 0.2,
-                'circle-stroke-width': 2,
-                'circle-stroke-color': '#ec4899',
-                'circle-stroke-opacity': 0.3,
-              }}
-              filter={['==', '$type', 'Point']}
-            />
-          </Source>
         </Map>
       </div>
 
       {/* Legend */}
       <div className="rounded border bg-white p-3 text-xs">
         <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={mapillaryTimePeriods.sixMonths}
+              disabled
+              className="size-3 rounded"
+            />
+            <div
+              className="size-3 rounded-full border border-white"
+              style={{ backgroundColor: '#15803d' }}
+            ></div>
+            <span>&lt; 6 months</span>
+          </label>
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={mapillaryTimePeriods.oneYear}
+              onChange={(e) => setMapillaryTimePeriod('oneYear', e.target.checked)}
+              className="size-3 rounded"
+            />
             <div
               className="size-3 rounded-full border border-white"
               style={{ backgroundColor: '#05CB63' }}
             ></div>
             <span>&lt; 1 year</span>
-          </div>
-          <div className="flex items-center gap-2">
+          </label>
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={mapillaryTimePeriods.twoYears}
+              onChange={(e) => setMapillaryTimePeriod('twoYears', e.target.checked)}
+              className="size-3 rounded"
+            />
             <div
               className="size-3 rounded-full border border-white"
               style={{ backgroundColor: '#FFC01B' }}
             ></div>
             <span>1-2 years</span>
-          </div>
-          <div className="flex items-center gap-2">
+          </label>
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={mapillaryTimePeriods.threeYears}
+              onChange={(e) => setMapillaryTimePeriod('threeYears', e.target.checked)}
+              className="size-3 rounded"
+            />
             <div
               className="size-3 rounded-full border border-white"
               style={{ backgroundColor: '#3b82f6' }}
             ></div>
             <span>2-3 years</span>
-          </div>
+          </label>
+          <label className="flex cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={mapillaryTimePeriods.older}
+              onChange={(e) => setMapillaryTimePeriod('older', e.target.checked)}
+              className="size-3 rounded"
+            />
+            <div
+              className="size-3 rounded-full border border-white"
+              style={{ backgroundColor: '#9ca3af' }}
+            ></div>
+            <span>Older</span>
+          </label>
         </div>
       </div>
     </div>

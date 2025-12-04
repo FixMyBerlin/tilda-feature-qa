@@ -102,6 +102,10 @@ export async function getUnevaluatedFeatures() {
   return allFeatures.filter((feature) => !evaluatedFeatureIds.has(feature.properties?.id as string))
 }
 
+export async function getEvaluatedCount() {
+  return await db.evaluations.count()
+}
+
 export async function getFeatureById(featureId: string) {
   const record = await db.features.get(featureId)
   return record?.feature

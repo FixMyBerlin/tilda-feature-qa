@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { evaluateFeature, getEvaluation, type EvaluationSource } from '../lib/db'
 import { statusTranslation } from '../lib/translations'
 import { useFeatureStore } from '../store/useFeatureStore'
@@ -32,8 +32,22 @@ export function EvaluationButtons({
   const propMapillaryId = featureProperties?.mapillary_id as string | undefined
   const mapillaryId = selectedMapillaryId || propMapillaryId || undefined
 
+  // Track previous featureId to detect changes
+  const prevFeatureIdRef = useRef<string | null>(null)
+  // Track previous selectedMapillaryId to detect when user clicks a new image
+  const prevSelectedMapillaryIdRef = useRef<string | null>(null)
+
   useEffect(() => {
     if (featureId) {
+      // Reset source when feature changes (before loading evaluation)
+      if (prevFeatureIdRef.current !== featureId) {
+        prevFeatureIdRef.current = featureId
+        prevSelectedMapillaryIdRef.current = null
+        // Reset to default based on feature property (not store, since store might have old value)
+        const defaultMapillaryId = propMapillaryId
+        setSource(defaultMapillaryId ? 'mapillary' : 'aerial_imagery')
+      }
+
       getEvaluation(featureId).then((evalData) => {
         if (evalData) {
           setCurrentEvaluation({
@@ -47,25 +61,28 @@ export function EvaluationButtons({
           setSource(evalData.mapillaryId ? 'mapillary' : (evalData.source || 'aerial_imagery'))
           if (evalData.mapillaryId) {
             setSelectedMapillaryId(evalData.mapillaryId)
+            prevSelectedMapillaryIdRef.current = evalData.mapillaryId
           }
         } else {
           setCurrentEvaluation(null)
           setComment('')
           setHasText(false)
           // If feature has mapillary_id property, default to 'mapillary' source
-          setSource(mapillaryId ? 'mapillary' : 'aerial_imagery')
+          // Use propMapillaryId directly, not mapillaryId (which includes store value)
+          setSource(propMapillaryId ? 'mapillary' : 'aerial_imagery')
         }
       })
     }
-  }, [featureId, setSelectedMapillaryId, mapillaryId])
+  }, [featureId, setSelectedMapillaryId, propMapillaryId])
 
-  // Automatically set source to 'mapillary' when mapillary ID becomes available and there's no evaluation
-  // This handles the case when user clicks a new mapillary image
+  // Automatically set source to 'mapillary' when user clicks a new mapillary image
+  // This detects when selectedMapillaryId changes (user clicked an image)
   useEffect(() => {
-    if (mapillaryId && !currentEvaluation) {
+    if (selectedMapillaryId && prevSelectedMapillaryIdRef.current !== selectedMapillaryId) {
+      prevSelectedMapillaryIdRef.current = selectedMapillaryId
       setSource('mapillary')
     }
-  }, [mapillaryId, currentEvaluation])
+  }, [selectedMapillaryId])
 
   const handleSourceChange = (newSource: EvaluationSource, newMapillaryId?: string) => {
     setSource(newSource)

@@ -4,6 +4,7 @@ import {
   clearAllData,
   exportEvaluatedFeatures,
   getAllFeatures,
+  getEvaluatedCount,
   getFeatureById,
   getUnevaluatedFeatures,
 } from '../lib/db'
@@ -21,15 +22,20 @@ export function FeatureViewer() {
   const [currentFeature, setCurrentFeature] = useState<GeoJSON.Feature | null>(null)
   const [loading, setLoading] = useState(true)
   const [evaluationUpdateCounter, setEvaluationUpdateCounter] = useState(0)
-  const { allFeatures, setAllFeatures, showOnlyUnevaluated, setShowOnlyUnevaluated } =
+  const [evaluatedCount, setEvaluatedCount] = useState(0)
+  const { allFeatures, setAllFeatures, showOnlyUnevaluated, setShowOnlyUnevaluated, setSelectedMapillaryId } =
     useFeatureStore()
 
-  // Load all features on mount
+  // Load all features and evaluated count on mount
   useEffect(() => {
-    getAllFeatures().then((features) => {
+    const loadData = async () => {
+      const features = await getAllFeatures()
+      const count = await getEvaluatedCount()
       setAllFeatures(features)
+      setEvaluatedCount(count)
       setLoading(false)
-    })
+    }
+    loadData()
     // biome-ignore lint/correctness/useExhaustiveDependencies: setAllFeatures is stable from zustand
   }, [])
 
@@ -59,6 +65,7 @@ export function FeatureViewer() {
         // Already have the right feature loaded
         return
       }
+      setSelectedMapillaryId(null) // Reset mapillary selection when feature changes
       getFeatureById(featureId).then((feature) => {
         if (feature) {
           setCurrentFeature(feature)
@@ -69,6 +76,7 @@ export function FeatureViewer() {
       const firstFeature = filteredFeaturesList[0]
       const firstId = firstFeature.properties?.id as string
       if (firstId) {
+        setSelectedMapillaryId(null) // Reset mapillary selection for new feature
         setCurrentFeature(firstFeature)
         setFeatureId(firstId)
       }
@@ -78,6 +86,7 @@ export function FeatureViewer() {
     filteredFeaturesList,
     currentFeature,
     setFeatureId,
+    setSelectedMapillaryId,
     // biome-ignore lint/correctness/useExhaustiveDependencies: complex dependencies, manually managed
   ])
 
@@ -93,9 +102,11 @@ export function FeatureViewer() {
     // Trigger map update
     setEvaluationUpdateCounter((prev) => prev + 1)
 
-    // Refresh filtered features
+    // Refresh filtered features and evaluated count
     const newFiltered = showOnlyUnevaluated ? await getUnevaluatedFeatures() : allFeatures
+    const newCount = await getEvaluatedCount()
     setFilteredFeaturesList(newFiltered)
+    setEvaluatedCount(newCount)
 
     // Find current feature's position in new filtered list
     const currentId = currentFeature.properties?.id as string
@@ -106,6 +117,7 @@ export function FeatureViewer() {
       const nextIndex = currentPos >= 0 && currentPos < newFiltered.length - 1 ? currentPos + 1 : 0 // Wrap around or go to first if current not found
       const nextFeature = newFiltered[nextIndex]
       const nextId = nextFeature.properties?.id as string
+      setSelectedMapillaryId(null) // Reset mapillary selection for new feature
       setFeatureId(nextId)
     }
   }
@@ -115,6 +127,7 @@ export function FeatureViewer() {
     const prevIndex = currentIndex <= 0 ? filteredFeaturesList.length - 1 : currentIndex - 1
     const prevFeature = filteredFeaturesList[prevIndex]
     const prevId = prevFeature.properties?.id as string
+    setSelectedMapillaryId(null) // Reset mapillary selection for new feature
     setFeatureId(prevId)
   }
 
@@ -123,6 +136,7 @@ export function FeatureViewer() {
     const nextIndex = currentIndex >= filteredFeaturesList.length - 1 ? 0 : currentIndex + 1
     const nextFeature = filteredFeaturesList[nextIndex]
     const nextId = nextFeature.properties?.id as string
+    setSelectedMapillaryId(null) // Reset mapillary selection for new feature
     setFeatureId(nextId)
   }
 
@@ -191,7 +205,7 @@ export function FeatureViewer() {
           </div>
           <div className="flex items-center gap-4">
             <div className="text-gray-600 text-sm">
-              {currentIndex + 1} of {filteredFeaturesList.length}
+              {evaluatedCount} of {allFeatures.length} done
             </div>
             <button
               onClick={handleReset}

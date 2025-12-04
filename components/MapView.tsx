@@ -3,7 +3,10 @@ import Map, { Layer, type MapRef, Source } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { bbox } from '@turf/turf'
 import { useBackgroundLayer } from '../hooks/useBackgroundLayer'
+import { useMapState } from '../hooks/useMapState'
 import { createMapStyleFromLayer } from '../lib/createMapStyle'
+import { CURRENT_FEATURE_COLOR } from '../lib/constants'
+import { getInitialMapStateFromFeature } from '../lib/mapUtils'
 import { getAllFeatures, getEvaluation } from '../lib/db'
 import { BackgroundLayerSelector } from './BackgroundLayerSelector'
 
@@ -22,7 +25,13 @@ export function MapView({ feature, evaluationUpdated }: MapViewProps) {
   const [allFeaturesWithEval, setAllFeaturesWithEval] = useState<FeatureWithEvaluation[]>([])
 
   const mapStyle = useMemo(() => createMapStyleFromLayer(currentLayer), [currentLayer])
-  const currentFeatureId = feature.properties?.id as string
+  const featureId = feature.properties?.id as string
+
+  // Get initial map state from feature bbox
+  const initialMapState = useMemo(() => getInitialMapStateFromFeature(feature), [feature])
+
+  // Sync map state with URL
+  const [mapState, setMapState] = useMapState(initialMapState)
 
   // Load all features with their evaluation status
   // Reload when feature changes (evaluation might have changed)
@@ -59,49 +68,49 @@ export function MapView({ feature, evaluationUpdated }: MapViewProps) {
     // biome-ignore lint/correctness/useExhaustiveDependencies: reload when feature or evaluation changes
   }, [feature, evaluationUpdated])
 
+  // Fit bounds when feature changes - only runs when feature prop changes
+  const prevFeatureIdRef = useRef<string | null>(null)
   useEffect(() => {
-    if (mapRef.current && feature.geometry) {
+    if (mapRef.current && feature.geometry && prevFeatureIdRef.current !== featureId) {
+      prevFeatureIdRef.current = featureId
       const map = mapRef.current.getMap()
       try {
         const bounds = bbox(feature)
         map.fitBounds(
           [
-            [bounds[0], bounds[1]],
-            [bounds[2], bounds[3]],
-          ] as [number, number, number, number],
+            [bounds[0]!, bounds[1]!],
+            [bounds[2]!, bounds[3]!],
+          ] as unknown as [number, number, number, number],
           {
             padding: { top: 20, bottom: 20, left: 20, right: 20 },
             duration: 0,
           },
         )
+        // Update URL with new bounds after fitBounds
+        const newCenter = map.getCenter()
+        const newZoom = map.getZoom()
+        setMapState({
+          longitude: newCenter.lng,
+          latitude: newCenter.lat,
+          zoom: newZoom,
+        })
       } catch (err) {
         console.error('Error fitting bounds:', err)
-        // Fallback: center on first coordinate if available
-        if (feature.geometry.type === 'Point') {
-          const coords = feature.geometry.coordinates as [number, number]
-          map.setCenter(coords)
-          map.setZoom(18)
-        } else if (
-          feature.geometry.type === 'LineString' &&
-          feature.geometry.coordinates.length > 0
-        ) {
-          const coords = feature.geometry.coordinates[0] as [number, number]
-          map.setCenter(coords)
-          map.setZoom(18)
-        }
+        // Fallback: use initial map state
+        setMapState(initialMapState)
       }
     }
-  }, [feature])
+  }, [feature, featureId, setMapState, initialMapState])
 
   // Separate features by evaluation status
   const goodFeatures = allFeaturesWithEval.filter(
-    (f) => f.evaluation === 'good' && (f.properties?.id as string) !== currentFeatureId,
+    (f) => f.evaluation === 'good' && (f.properties?.id as string) !== featureId,
   )
   const badFeatures = allFeaturesWithEval.filter(
-    (f) => f.evaluation === 'bad' && (f.properties?.id as string) !== currentFeatureId,
+    (f) => f.evaluation === 'bad' && (f.properties?.id as string) !== featureId,
   )
   const unverifiedFeatures = allFeaturesWithEval.filter(
-    (f) => !f.evaluation && (f.properties?.id as string) !== currentFeatureId,
+    (f) => !f.evaluation && (f.properties?.id as string) !== featureId,
   )
 
   const goodGeoJSON: GeoJSON.FeatureCollection = {
@@ -124,57 +133,25 @@ export function MapView({ feature, evaluationUpdated }: MapViewProps) {
     features: [feature],
   }
 
-  // Get initial view state from feature (will be overridden by fitBounds)
-  const getInitialViewState = () => {
-    try {
-      const bounds = bbox(feature)
-      const centerLng = (bounds[0] + bounds[2]) / 2
-      const centerLat = (bounds[1] + bounds[3]) / 2
-      return {
-        longitude: centerLng,
-        latitude: centerLat,
-        zoom: 16,
-      }
-    } catch {
-      if (feature.geometry.type === 'Point') {
-        const coords = feature.geometry.coordinates as [number, number]
-        return {
-          longitude: coords[0],
-          latitude: coords[1],
-          zoom: 18,
-        }
-      } else if (
-        feature.geometry.type === 'LineString' &&
-        feature.geometry.coordinates.length > 0
-      ) {
-        const coords = feature.geometry.coordinates[0] as [number, number]
-        return {
-          longitude: coords[0],
-          latitude: coords[1],
-          zoom: 18,
-        }
-      }
-      return {
-        longitude: 13.4,
-        latitude: 52.5,
-        zoom: 12,
-      }
-    }
-  }
+  const viewState = mapState || initialMapState
 
   return (
     <div className="relative h-full w-full" style={{ minHeight: '384px' }}>
       <Map
         ref={mapRef}
         mapStyle={mapStyle}
-        initialViewState={getInitialViewState()}
+        {...viewState}
+        onMove={(evt) => {
+          const { longitude, latitude, zoom } = evt.viewState
+          setMapState({ longitude, latitude, zoom })
+        }}
         style={{ width: '100%', height: '100%', minHeight: '384px' }}
         attributionControl={true}
         customAttribution={currentLayer.attributionHtml}
       >
         {/* Unverified features - black dashed */}
         <Source
-          key={`unverified-${currentFeatureId}`}
+          key={`unverified-${featureId}`}
           id="unverified"
           type="geojson"
           data={unverifiedGeoJSON}
@@ -212,7 +189,7 @@ export function MapView({ feature, evaluationUpdated }: MapViewProps) {
         </Source>
 
         {/* Good features - green */}
-        <Source key={`good-${currentFeatureId}`} id="good" type="geojson" data={goodGeoJSON}>
+        <Source key={`good-${featureId}`} id="good" type="geojson" data={goodGeoJSON}>
           <Layer
             id="good-line"
             type="line"
@@ -245,7 +222,7 @@ export function MapView({ feature, evaluationUpdated }: MapViewProps) {
         </Source>
 
         {/* Bad features - red */}
-        <Source key={`bad-${currentFeatureId}`} id="bad" type="geojson" data={badGeoJSON}>
+        <Source key={`bad-${featureId}`} id="bad" type="geojson" data={badGeoJSON}>
           <Layer
             id="bad-line"
             type="line"
@@ -279,7 +256,7 @@ export function MapView({ feature, evaluationUpdated }: MapViewProps) {
 
         {/* Current feature - pink (on top) */}
         <Source
-          key={`current-${currentFeatureId}`}
+          key={`current-${featureId}`}
           id="current"
           type="geojson"
           data={currentFeatureGeoJSON}
@@ -288,7 +265,7 @@ export function MapView({ feature, evaluationUpdated }: MapViewProps) {
             id="current-line"
             type="line"
             paint={{
-              'line-color': '#ec4899', // pink-500
+              'line-color': CURRENT_FEATURE_COLOR,
               'line-width': 4,
               'line-opacity': 0.9,
             }}
@@ -298,7 +275,7 @@ export function MapView({ feature, evaluationUpdated }: MapViewProps) {
             id="current-fill"
             type="fill"
             paint={{
-              'fill-color': '#ec4899',
+              'fill-color': CURRENT_FEATURE_COLOR,
               'fill-opacity': 0.3,
             }}
             filter={['==', '$type', 'Polygon']}
@@ -307,7 +284,7 @@ export function MapView({ feature, evaluationUpdated }: MapViewProps) {
             id="current-point"
             type="circle"
             paint={{
-              'circle-color': '#ec4899',
+              'circle-color': CURRENT_FEATURE_COLOR,
               'circle-radius': 8,
               'circle-opacity': 0.9,
             }}
