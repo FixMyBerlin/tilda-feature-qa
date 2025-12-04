@@ -14,6 +14,9 @@ type EvaluationButtonsProps = {
     mapillaryId?: string
   } | null
   onEvaluated: () => void
+  onPrev?: () => void
+  onNext?: () => void
+  canNavigate?: boolean
 }
 
 export function EvaluationButtons({
@@ -21,6 +24,9 @@ export function EvaluationButtons({
   featureProperties,
   initialEvaluation,
   onEvaluated,
+  onPrev,
+  onNext,
+  canNavigate = false,
 }: EvaluationButtonsProps) {
   const [comment, setComment] = useState(initialEvaluation?.comment || '')
   const [currentEvaluation, setCurrentEvaluation] = useState(initialEvaluation || null)
@@ -135,6 +141,26 @@ export function EvaluationButtons({
         >
           ✗ {statusTranslation.bad}
         </button>
+        {canNavigate && onPrev && (
+          <button
+            type="button"
+            onClick={onPrev}
+            disabled={loading}
+            className="rounded bg-gray-200 px-2 py-2 text-gray-700 text-xs transition-colors hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            ← Prev
+          </button>
+        )}
+        {canNavigate && onNext && (
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={loading}
+            className="rounded bg-gray-200 px-2 py-2 text-gray-700 text-xs transition-colors hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Next →
+          </button>
+        )}
       </div>
 
       <div className="mt-3">

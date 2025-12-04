@@ -260,6 +260,9 @@ export function FeatureViewer() {
             featureProperties={currentFeature.properties || undefined}
             initialEvaluation={currentEvaluation}
             onEvaluated={handleEvaluated}
+            onPrev={handlePrev}
+            onNext={handleNext}
+            canNavigate={filteredFeaturesList.length > 0}
           />
         </div>
         <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -271,24 +274,6 @@ export function FeatureViewer() {
           </div>
         </div>
 
-        <div className="flex justify-center gap-4">
-          <button
-            type="button"
-            onClick={handlePrev}
-            disabled={filteredFeaturesList.length === 0}
-            className="rounded bg-gray-200 px-6 py-2 text-gray-700 hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            ← Previous
-          </button>
-          <button
-            type="button"
-            onClick={handleNext}
-            disabled={filteredFeaturesList.length === 0}
-            className="rounded bg-gray-200 px-6 py-2 text-gray-700 hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Next →
-          </button>
-        </div>
       </div>
     </div>
   )
