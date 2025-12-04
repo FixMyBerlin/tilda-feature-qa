@@ -33,7 +33,7 @@ export function FeatureViewer() {
     setSource,
   } = useFeatureStore()
 
-  // Initialize: load all features and count on mount, set first feature if none in URL
+  // Initialize: load all features and count on mount, set first unevaluated feature if none in URL
   useEffect(() => {
     const loadData = async () => {
       const features = await getAllFeatures()
@@ -42,13 +42,14 @@ export function FeatureViewer() {
       setEvaluatedCount(count)
       setLoading(false)
 
-      // If no feature in URL and we have features, set the first one
+      // If no feature in URL and we have features, prefer an unevaluated one
       if (!currentFeature && features.length > 0) {
-        const firstFeature = features[0]
+        const unevaluatedFeatures = await getUnevaluatedFeatures()
+        const featureToUse = unevaluatedFeatures.length > 0 ? unevaluatedFeatures[0] : features[0]
         setSelectedMapillaryId(null)
-        const propMapillaryId = firstFeature.properties?.mapillary_id as string | undefined
+        const propMapillaryId = featureToUse.properties?.mapillary_id as string | undefined
         setSource(propMapillaryId ? 'mapillary' : 'aerial_imagery')
-        setFeatureId(firstFeature)
+        setFeatureId(featureToUse)
       }
     }
     loadData()
