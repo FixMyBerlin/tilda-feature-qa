@@ -2,6 +2,19 @@
 
 A simple web application for reviewing GeoJSON features with map visualization and evaluation capabilities. Features are stored locally in IndexedDB, allowing you to evaluate each feature as "correct" or "wrong" with optional comments.
 
+## URL
+
+https://tilda-feature-qa.netlify.app/
+
+Deployment: https://app.netlify.com/projects/tilda-feature-qa/overview
+
+## Next steps
+
+- Rework the store to allow multiple files ("projects") with name, filename and features
+- Rework the tool to handle TILDA data imports via URL and bbox and filter the data by criteria like `category=cyclewayOnHighwayProtected`
+
+FYI: I tried adding a auto-detect for mapillary imagery via https://codepen.io/lewin76/pen/oggmKQW (from https://www.mapillary.com/developer/api-documentation/faq?locale=de_DE) but that did not work so now we click manually which works fine as well.
+
 ## Features
 
 - Load GeoJSON files via file picker (stored in IndexedDB)
@@ -18,6 +31,8 @@ bun install
 bun run dev
 open http://localhost:4123
 ```
+
+
 
 ## Usage
 
