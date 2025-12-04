@@ -8,6 +8,7 @@ import { CURRENT_FEATURE_COLOR } from '../lib/constants'
 import { createMapStyleFromLayer } from '../lib/createMapStyle'
 import { getAllFeatures, getEvaluation } from '../lib/db'
 import { getInitialMapStateFromFeature } from '../lib/mapUtils'
+import { useFeatureStore } from '../store/useFeatureStore'
 import { BackgroundLayerSelector } from './BackgroundLayerSelector'
 
 type MapViewProps = {
@@ -22,6 +23,7 @@ export function MapView({ feature }: MapViewProps) {
   const mapRef = useRef<MapRef>(null)
   const { currentLayer } = useBackgroundLayer()
   const [allFeaturesWithEval, setAllFeaturesWithEval] = useState<FeatureWithEvaluation[]>([])
+  const { mapLoaded, setMapLoaded } = useFeatureStore()
 
   const mapStyle = useMemo(() => createMapStyleFromLayer(currentLayer), [currentLayer])
   const featureId = feature.properties?.id as string
@@ -139,6 +141,12 @@ export function MapView({ feature }: MapViewProps) {
         mapStyle={mapStyle}
         {...viewState}
         maxZoom={20.5}
+        onLoad={() => {
+          setMapLoaded(true)
+        }}
+        onStyleData={() => {
+          setMapLoaded(false)
+        }}
         onMove={(evt) => {
           const { longitude, latitude, zoom } = evt.viewState
           setMapState({ longitude, latitude, zoom })
@@ -147,13 +155,15 @@ export function MapView({ feature }: MapViewProps) {
         attributionControl={true}
         customAttribution={currentLayer.attributionHtml}
       >
-        {/* Unverified features - black dashed */}
-        <Source
-          key={`unverified-${featureId}`}
-          id="unverified"
-          type="geojson"
-          data={unverifiedGeoJSON}
-        >
+        {mapLoaded && (
+          <>
+            {/* Unverified features - black dashed */}
+            <Source
+              key={`unverified-${featureId}`}
+              id="unverified"
+              type="geojson"
+              data={unverifiedGeoJSON}
+            >
           <Layer
             id="unverified-line"
             type="line"
@@ -289,6 +299,8 @@ export function MapView({ feature }: MapViewProps) {
             filter={['==', '$type', 'Point']}
           />
         </Source>
+          </>
+        )}
       </MapComponent>
       <BackgroundLayerSelector />
     </div>
