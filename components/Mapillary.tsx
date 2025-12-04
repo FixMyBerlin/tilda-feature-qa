@@ -30,7 +30,7 @@ export function Mapillary({ mapillaryId, geometry }: MapillaryProps) {
             <MapillaryEmbed imageId={effectiveMapillaryId} height="400" className="w-full" />
           </div>
           <a
-            href={`https://www.mapillary.com/app/?pKey=${effectiveMapillaryId}`}
+            href={`https://www.mapillary.com/app/?pKey=${effectiveMapillaryId}&focus=photo`}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-2 block text-blue-600 text-sm hover:text-blue-800"
