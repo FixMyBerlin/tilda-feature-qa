@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useFeatureStore } from '../store/useFeatureStore'
 import { MapillaryEmbed } from './MapillaryEmbed'
 import { MapillaryImage } from './MapillaryImage'
@@ -10,8 +9,7 @@ type MapillaryProps = {
 }
 
 export function Mapillary({ mapillaryId, geometry }: MapillaryProps) {
-  const { selectedMapillaryId, setSelectedMapillaryId, setSource } = useFeatureStore()
-  const [useApiPreview, setUseApiPreview] = useState(false)
+  const { selectedMapillaryId, setSelectedMapillaryId, setSource, useApiPreview, setUseApiPreview } = useFeatureStore()
 
   const effectiveMapillaryId = selectedMapillaryId || mapillaryId || undefined
   const isLineString = geometry.type === 'LineString'

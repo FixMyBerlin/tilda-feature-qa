@@ -14,6 +14,7 @@ type FeatureStore = {
     threeYears: boolean
     older: boolean // 3+ years
   }
+  useApiPreview: boolean
   setAllFeatures: (features: GeoJSON.Feature[]) => void
   setShowOnlyUnevaluated: (show: boolean) => void
   setSelectedMapillaryId: (id: string | null) => void
@@ -23,6 +24,7 @@ type FeatureStore = {
     period: 'oneYear' | 'twoYears' | 'threeYears' | 'older',
     enabled: boolean,
   ) => void
+  setUseApiPreview: (use: boolean) => void
 }
 
 export const useFeatureStore = create<FeatureStore>((set) => ({
@@ -38,6 +40,7 @@ export const useFeatureStore = create<FeatureStore>((set) => ({
     threeYears: false,
     older: false, // 3+ years, disabled by default
   },
+  useApiPreview: false,
   setAllFeatures: (features: GeoJSON.Feature[]) => set({ allFeatures: features }),
   setShowOnlyUnevaluated: (show: boolean) => set({ showOnlyUnevaluated: show }),
   setSelectedMapillaryId: (id: string | null) => set({ selectedMapillaryId: id }),
@@ -47,4 +50,5 @@ export const useFeatureStore = create<FeatureStore>((set) => ({
     set((state) => ({
       mapillaryTimePeriods: { ...state.mapillaryTimePeriods, [period]: enabled },
     })),
+  setUseApiPreview: (use: boolean) => set({ useApiPreview: use }),
 }))
