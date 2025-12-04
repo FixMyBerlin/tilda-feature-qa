@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { evaluateFeature, getEvaluation, type EvaluationSource } from '../lib/db'
+import { type EvaluationSource, evaluateFeature } from '../lib/db'
 import { statusTranslation } from '../lib/translations'
 import { useFeatureStore } from '../store/useFeatureStore'
 import { SourceSelector } from './SourceSelector'
@@ -112,6 +112,7 @@ export function EvaluationButtons({
 
       <div className="flex gap-3">
         <button
+          type="button"
           onClick={() => handleEvaluate('good')}
           disabled={loading}
           className={`flex-1 rounded px-4 py-2 font-semibold transition-colors ${
@@ -123,6 +124,7 @@ export function EvaluationButtons({
           ✓ {statusTranslation.good}
         </button>
         <button
+          type="button"
           onClick={() => handleEvaluate('bad')}
           disabled={loading}
           className={`flex-1 rounded px-4 py-2 font-semibold transition-colors ${

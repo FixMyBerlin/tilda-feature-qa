@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useFeatureFromUrl } from '../hooks/useFeatureFromUrl'
 import {
   clearAllData,
+  type EvaluationSource,
   exportEvaluatedFeatures,
   getAllFeatures,
   getEvaluatedCount,
   getEvaluation,
   getUnevaluatedFeatures,
-  type EvaluationSource,
 } from '../lib/db'
-import { useFeatureFromUrl } from '../hooks/useFeatureFromUrl'
 import { useFeatureStore } from '../store/useFeatureStore'
 import { EvaluationButtons } from './EvaluationButtons'
 import { MapView } from './MapView'
@@ -23,10 +23,15 @@ export function FeatureViewer() {
     mapillaryId?: string
   } | null>(null)
   const [loading, setLoading] = useState(true)
-  const [evaluationUpdateCounter, setEvaluationUpdateCounter] = useState(0)
   const [evaluatedCount, setEvaluatedCount] = useState(0)
-  const { allFeatures, setAllFeatures, showOnlyUnevaluated, setShowOnlyUnevaluated, setSelectedMapillaryId, setSource } =
-    useFeatureStore()
+  const {
+    allFeatures,
+    setAllFeatures,
+    showOnlyUnevaluated,
+    setShowOnlyUnevaluated,
+    setSelectedMapillaryId,
+    setSource,
+  } = useFeatureStore()
 
   // Initialize: load all features and count on mount, set first feature if none in URL
   useEffect(() => {
@@ -47,8 +52,7 @@ export function FeatureViewer() {
       }
     }
     loadData()
-    // biome-ignore lint/correctness/useExhaustiveDependencies: setAllFeatures is stable from zustand
-  }, [])
+  }, [currentFeature, setAllFeatures, setFeatureId, setSelectedMapillaryId, setSource])
 
   const [filteredFeaturesList, setFilteredFeaturesList] = useState<GeoJSON.Feature[]>([])
 
@@ -93,7 +97,7 @@ export function FeatureViewer() {
           source: evalData.source,
           mapillaryId: evalData.mapillaryId,
         })
-        setSource(evalData.mapillaryId ? 'mapillary' : (evalData.source || 'aerial_imagery'))
+        setSource(evalData.mapillaryId ? 'mapillary' : evalData.source || 'aerial_imagery')
         if (evalData.mapillaryId) {
           setSelectedMapillaryId(evalData.mapillaryId)
         }
@@ -113,8 +117,6 @@ export function FeatureViewer() {
 
   const handleEvaluated = async () => {
     if (!currentFeature) return
-
-    setEvaluationUpdateCounter((prev) => prev + 1)
 
     const newFiltered = showOnlyUnevaluated ? await getUnevaluatedFeatures() : allFeatures
     const newCount = await getEvaluatedCount()
@@ -215,7 +217,7 @@ export function FeatureViewer() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="border-b bg-white shadow-sm">
-        <div className="mx-auto flex max-w-7xl items-center justify-between sm:px-6 lg:px-8 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
             <h1 className="font-bold text-xl">Feature Review</h1>
             <label className="flex items-center gap-2">
@@ -233,12 +235,14 @@ export function FeatureViewer() {
               {evaluatedCount} of {allFeatures.length} done
             </div>
             <button
+              type="button"
               onClick={handleReset}
               className="rounded bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
             >
               Reset All Data
             </button>
             <button
+              type="button"
               onClick={handleExport}
               className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
             >
@@ -248,7 +252,7 @@ export function FeatureViewer() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl sm:px-6 lg:px-8 py-4">
+      <div className="mx-auto max-w-7xl py-4 sm:px-6 lg:px-8">
         <div className="mb-4">
           <EvaluationButtons
             featureId={currentFeature.properties?.id as string}
@@ -259,7 +263,7 @@ export function FeatureViewer() {
         </div>
         <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="relative h-96 lg:h-[600px]">
-            <MapView feature={currentFeature} evaluationUpdated={evaluationUpdateCounter} />
+            <MapView feature={currentFeature} />
           </div>
           <div className="space-y-4">
             <PropertiesPanel feature={currentFeature} />
@@ -268,6 +272,7 @@ export function FeatureViewer() {
 
         <div className="flex justify-center gap-4">
           <button
+            type="button"
             onClick={handlePrev}
             disabled={filteredFeaturesList.length === 0}
             className="rounded bg-gray-200 px-6 py-2 text-gray-700 hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"
@@ -275,6 +280,7 @@ export function FeatureViewer() {
             ← Previous
           </button>
           <button
+            type="button"
             onClick={handleNext}
             disabled={filteredFeaturesList.length === 0}
             className="rounded bg-gray-200 px-6 py-2 text-gray-700 hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-50"

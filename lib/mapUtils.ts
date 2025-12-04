@@ -1,5 +1,4 @@
 import { bbox } from '@turf/turf'
-import type { MapState } from './mapStateParser'
 
 export function getInitialMapStateFromFeature(feature: GeoJSON.Feature) {
   try {

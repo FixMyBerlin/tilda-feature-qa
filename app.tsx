@@ -1,5 +1,5 @@
 import { NuqsAdapter } from 'nuqs/adapters/react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { FeatureViewer } from './components/FeatureViewer'
 import { FileLoader } from './components/FileLoader'
@@ -9,15 +9,14 @@ import './styles/output.css'
 function App() {
   const [hasFeatures, setHasFeatures] = useState<boolean | null>(null)
 
-  const checkFeatures = async () => {
+  const checkFeatures = useCallback(async () => {
     const features = await getAllFeatures()
     setHasFeatures(features.length > 0)
-  }
+  }, [])
 
   useEffect(() => {
     checkFeatures()
-    // biome-ignore lint/correctness/useExhaustiveDependencies: checkFeatures is only called on mount
-  }, [])
+  }, [checkFeatures])
 
   const handleLoad = () => {
     setHasFeatures(true)

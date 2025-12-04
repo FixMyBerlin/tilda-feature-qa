@@ -1,25 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import Map, { Layer, type MapRef, Source } from 'react-map-gl/maplibre'
+import MapComponent, { Layer, type MapRef, Source } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { bbox } from '@turf/turf'
 import { useBackgroundLayer } from '../hooks/useBackgroundLayer'
 import { useMapState } from '../hooks/useMapState'
-import { createMapStyleFromLayer } from '../lib/createMapStyle'
 import { CURRENT_FEATURE_COLOR } from '../lib/constants'
-import { getInitialMapStateFromFeature } from '../lib/mapUtils'
+import { createMapStyleFromLayer } from '../lib/createMapStyle'
 import { getAllFeatures, getEvaluation } from '../lib/db'
+import { getInitialMapStateFromFeature } from '../lib/mapUtils'
 import { BackgroundLayerSelector } from './BackgroundLayerSelector'
 
 type MapViewProps = {
   feature: GeoJSON.Feature
-  evaluationUpdated?: number
 }
 
 type FeatureWithEvaluation = GeoJSON.Feature & {
   evaluation?: 'good' | 'bad' | null
 }
 
-export function MapView({ feature, evaluationUpdated }: MapViewProps) {
+export function MapView({ feature }: MapViewProps) {
   const mapRef = useRef<MapRef>(null)
   const { currentLayer } = useBackgroundLayer()
   const [allFeaturesWithEval, setAllFeaturesWithEval] = useState<FeatureWithEvaluation[]>([])
@@ -59,8 +58,7 @@ export function MapView({ feature, evaluationUpdated }: MapViewProps) {
     return () => {
       cancelled = true
     }
-    // biome-ignore lint/correctness/useExhaustiveDependencies: reload when feature or evaluation changes
-  }, [feature, evaluationUpdated])
+  }, [])
 
   const prevFeatureIdRef = useRef<string | null>(null)
   useEffect(() => {
@@ -71,16 +69,24 @@ export function MapView({ feature, evaluationUpdated }: MapViewProps) {
     const map = mapRef.current.getMap()
     try {
       const bounds = bbox(feature)
-      map.fitBounds(
-        [
-          [bounds[0]!, bounds[1]!],
-          [bounds[2]!, bounds[3]!],
-        ] as unknown as [number, number, number, number],
-        {
-          padding: { top: 20, bottom: 20, left: 20, right: 20 },
-          duration: 0,
-        },
-      )
+      if (
+        bounds.length >= 4 &&
+        bounds[0] != null &&
+        bounds[1] != null &&
+        bounds[2] != null &&
+        bounds[3] != null
+      ) {
+        map.fitBounds(
+          [
+            [bounds[0], bounds[1]],
+            [bounds[2], bounds[3]],
+          ] as unknown as [number, number, number, number],
+          {
+            padding: { top: 20, bottom: 20, left: 20, right: 20 },
+            duration: 0,
+          },
+        )
+      }
       const newCenter = map.getCenter()
       const newZoom = map.getZoom()
       setMapState({
@@ -128,7 +134,7 @@ export function MapView({ feature, evaluationUpdated }: MapViewProps) {
 
   return (
     <div className="relative h-full w-full" style={{ minHeight: '384px' }}>
-      <Map
+      <MapComponent
         ref={mapRef}
         mapStyle={mapStyle}
         {...viewState}
@@ -282,7 +288,7 @@ export function MapView({ feature, evaluationUpdated }: MapViewProps) {
             filter={['==', '$type', 'Point']}
           />
         </Source>
-      </Map>
+      </MapComponent>
       <BackgroundLayerSelector />
     </div>
   )

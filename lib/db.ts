@@ -47,6 +47,7 @@ class FeatureReviewDB extends Dexie {
                 source: 'aerial_imagery' as EvaluationSource,
               })
             }
+            return Promise.resolve()
           }),
         )
       })
@@ -142,7 +143,7 @@ export async function exportEvaluatedFeatures() {
     })
     .map((feature: GeoJSON.Feature) => {
       const featureId = feature.properties?.id as string
-      const evaluation = evaluationMap.get(featureId)!
+      const evaluation = evaluationMap.get(featureId)
       if (!evaluation) return feature
       return {
         ...feature,

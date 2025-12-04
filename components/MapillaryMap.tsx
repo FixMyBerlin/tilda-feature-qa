@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { MapLayerMouseEvent } from 'react-map-gl/maplibre'
 import type { FilterSpecification } from 'maplibre-gl'
-import Map, { Layer, Source } from 'react-map-gl/maplibre'
+import { useMemo, useState } from 'react'
+import type { MapLayerMouseEvent } from 'react-map-gl/maplibre'
+import MapComponent, { Layer, Source } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useBackgroundLayer } from '../hooks/useBackgroundLayer'
 import { useMapState } from '../hooks/useMapState'
 import { CURRENT_FEATURE_COLOR, MAPILLARY_ACCESS_TOKEN } from '../lib/constants'
-import { getInitialMapStateFromFeature } from '../lib/mapUtils'
 import { createMapStyleFromLayer } from '../lib/createMapStyle'
+import { getInitialMapStateFromFeature } from '../lib/mapUtils'
 import { useFeatureStore } from '../store/useFeatureStore'
 
 type MapillaryMapProps = {
@@ -21,12 +21,11 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
   const mapStyle = useMemo(() => createMapStyleFromLayer(currentLayer), [currentLayer])
   const { mapillaryTimePeriods, setMapillaryTimePeriod } = useFeatureStore()
 
-  if (geometry.type !== 'LineString') {
-    return null
-  }
-
-  const feature = { type: 'Feature' as const, geometry, properties: {} }
-  const initialMapState = useMemo(() => getInitialMapStateFromFeature(feature), [geometry])
+  const feature = useMemo(
+    () => ({ type: 'Feature' as const, geometry, properties: {} }),
+    [geometry],
+  )
+  const initialMapState = useMemo(() => getInitialMapStateFromFeature(feature), [feature])
   const [mapState, setMapState] = useMapState(initialMapState)
 
   const viewState = mapState || initialMapState
@@ -92,7 +91,7 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
 
     steps.push(sixMonthsAgo, '#15803d')
 
-    return steps as any
+    return steps as unknown
   }, [mapillaryTimePeriods, sixMonthsAgo, oneYearAgo, twoYearsAgo, threeYearsAgo])
 
   const [cursorStyle, setCursorStyle] = useState('grab')
@@ -109,10 +108,14 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
     setCursorStyle('grab')
   }
 
+  if (geometry.type !== 'LineString') {
+    return null
+  }
+
   return (
     <div className="space-y-2">
       <div className="relative h-96 overflow-hidden rounded border bg-gray-100">
-        <Map
+        <MapComponent
           id="mapillary-map"
           {...viewState}
           onMove={(evt) => {
@@ -261,11 +264,9 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
                 'circle-stroke-width': 1,
                 'circle-stroke-color': '#fff',
               }}
-              filter={[
-                'all',
-                buildTimeFilter,
-                ['!=', ['get', 'is_pano'], true],
-              ] as FilterSpecification}
+              filter={
+                ['all', buildTimeFilter, ['!=', ['get', 'is_pano'], true]] as FilterSpecification
+              }
             />
 
             {/* Panorama images - sorted by captured_at (newest on top) */}
@@ -296,11 +297,9 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
                 'circle-stroke-width': 1,
                 'circle-stroke-color': '#fff',
               }}
-              filter={[
-                'all',
-                buildTimeFilter,
-                ['==', ['get', 'is_pano'], true],
-              ] as FilterSpecification}
+              filter={
+                ['all', buildTimeFilter, ['==', ['get', 'is_pano'], true]] as FilterSpecification
+              }
             />
 
             {/* Click target layer (transparent, larger for easier clicking) - sorted by captured_at (newest on top) */}
@@ -347,11 +346,9 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
                 'circle-stroke-color': buildColorStep,
                 'circle-stroke-opacity': 0.8,
               }}
-              filter={[
-                'all',
-                buildTimeFilter,
-                ['==', ['get', 'is_pano'], true],
-              ] as FilterSpecification}
+              filter={
+                ['all', buildTimeFilter, ['==', ['get', 'is_pano'], true]] as FilterSpecification
+              }
             />
 
             {/* Highlight layer for selected image - renders on top */}
@@ -425,7 +422,7 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
               }
             />
           </Source>
-        </Map>
+        </MapComponent>
       </div>
 
       {/* Legend */}

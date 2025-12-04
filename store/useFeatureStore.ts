@@ -17,7 +17,10 @@ type FeatureStore = {
   setShowOnlyUnevaluated: (show: boolean) => void
   setSelectedMapillaryId: (id: string | null) => void
   setSource: (source: EvaluationSource) => void
-  setMapillaryTimePeriod: (period: 'oneYear' | 'twoYears' | 'threeYears' | 'older', enabled: boolean) => void
+  setMapillaryTimePeriod: (
+    period: 'oneYear' | 'twoYears' | 'threeYears' | 'older',
+    enabled: boolean,
+  ) => void
 }
 
 export const useFeatureStore = create<FeatureStore>((set) => ({

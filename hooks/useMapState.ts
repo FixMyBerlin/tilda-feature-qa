@@ -1,5 +1,5 @@
 import { useQueryState } from 'nuqs'
-import { mapStateParser, type MapState } from '../lib/mapStateParser'
+import { type MapState, mapStateParser } from '../lib/mapStateParser'
 
 export function useMapState(defaultValue: MapState) {
   return useQueryState('map', {

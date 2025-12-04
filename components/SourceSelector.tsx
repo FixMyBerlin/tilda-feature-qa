@@ -1,5 +1,5 @@
-import { useFeatureStore } from '../store/useFeatureStore'
 import type { EvaluationSource } from '../lib/db'
+import { useFeatureStore } from '../store/useFeatureStore'
 
 type SourceSelectorProps = {
   featureId: string
@@ -28,7 +28,7 @@ export function SourceSelector({
 
   return (
     <div className="flex items-center gap-4">
-      <span className="text-sm font-medium text-gray-700">Source:</span>
+      <span className="font-medium text-gray-700 text-sm">Source:</span>
       <div className="flex gap-3">
         <label className="flex cursor-pointer items-center gap-2">
           <input
@@ -53,7 +53,9 @@ export function SourceSelector({
           />
           <span className="text-sm">
             Mapillary
-            {hasMapillaryId && <span className="text-gray-500 whitespace-nowrap"> ({mapillaryId})</span>}
+            {hasMapillaryId && (
+              <span className="whitespace-nowrap text-gray-500"> ({mapillaryId})</span>
+            )}
           </span>
         </label>
         <label className="flex cursor-pointer items-center gap-2">

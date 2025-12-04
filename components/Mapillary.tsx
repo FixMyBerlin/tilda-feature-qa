@@ -1,6 +1,6 @@
+import { useFeatureStore } from '../store/useFeatureStore'
 import { MapillaryEmbed } from './MapillaryEmbed'
 import { MapillaryMap } from './MapillaryMap'
-import { useFeatureStore } from '../store/useFeatureStore'
 
 type MapillaryProps = {
   mapillaryId: string | null | undefined
