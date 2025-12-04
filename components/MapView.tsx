@@ -138,6 +138,7 @@ export function MapView({ feature }: MapViewProps) {
         ref={mapRef}
         mapStyle={mapStyle}
         {...viewState}
+        maxZoom={20.5}
         onMove={(evt) => {
           const { longitude, latitude, zoom } = evt.viewState
           setMapState({ longitude, latitude, zoom })

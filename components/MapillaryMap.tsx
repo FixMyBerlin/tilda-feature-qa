@@ -118,6 +118,7 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
         <MapComponent
           id="mapillary-map"
           {...viewState}
+          maxZoom={20.5}
           onMove={(evt) => {
             const { longitude, latitude, zoom } = evt.viewState
             setMapState({ longitude, latitude, zoom })
