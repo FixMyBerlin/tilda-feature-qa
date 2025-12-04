@@ -144,9 +144,6 @@ export function MapView({ feature }: MapViewProps) {
         onLoad={() => {
           setMapLoaded(true)
         }}
-        onStyleData={() => {
-          setMapLoaded(false)
-        }}
         onMove={(evt) => {
           const { longitude, latitude, zoom } = evt.viewState
           setMapState({ longitude, latitude, zoom })
