@@ -1,32 +1,34 @@
-import { useQueryState } from 'nuqs'
 import { useEffect, useMemo, useState } from 'react'
 import {
   clearAllData,
   exportEvaluatedFeatures,
   getAllFeatures,
   getEvaluatedCount,
-  getFeatureById,
+  getEvaluation,
   getUnevaluatedFeatures,
+  type EvaluationSource,
 } from '../lib/db'
+import { useFeatureFromUrl } from '../hooks/useFeatureFromUrl'
 import { useFeatureStore } from '../store/useFeatureStore'
 import { EvaluationButtons } from './EvaluationButtons'
 import { MapView } from './MapView'
 import { PropertiesPanel } from './PropertiesPanel'
 
 export function FeatureViewer() {
-  const [featureId, setFeatureId] = useQueryState('featureId', {
-    defaultValue: null,
-    parse: (value) => value,
-    serialize: (value) => value || '',
-  })
-  const [currentFeature, setCurrentFeature] = useState<GeoJSON.Feature | null>(null)
+  const [currentFeature, setFeatureId] = useFeatureFromUrl()
+  const [currentEvaluation, setCurrentEvaluation] = useState<{
+    status: 'good' | 'bad'
+    comment?: string
+    source?: EvaluationSource
+    mapillaryId?: string
+  } | null>(null)
   const [loading, setLoading] = useState(true)
   const [evaluationUpdateCounter, setEvaluationUpdateCounter] = useState(0)
   const [evaluatedCount, setEvaluatedCount] = useState(0)
-  const { allFeatures, setAllFeatures, showOnlyUnevaluated, setShowOnlyUnevaluated, setSelectedMapillaryId } =
+  const { allFeatures, setAllFeatures, showOnlyUnevaluated, setShowOnlyUnevaluated, setSelectedMapillaryId, setSource } =
     useFeatureStore()
 
-  // Load all features and evaluated count on mount
+  // Initialize: load all features and count on mount, set first feature if none in URL
   useEffect(() => {
     const loadData = async () => {
       const features = await getAllFeatures()
@@ -34,6 +36,15 @@ export function FeatureViewer() {
       setAllFeatures(features)
       setEvaluatedCount(count)
       setLoading(false)
+
+      // If no feature in URL and we have features, set the first one
+      if (!currentFeature && features.length > 0) {
+        const firstFeature = features[0]
+        setSelectedMapillaryId(null)
+        const propMapillaryId = firstFeature.properties?.mapillary_id as string | undefined
+        setSource(propMapillaryId ? 'mapillary' : 'aerial_imagery')
+        setFeatureId(firstFeature)
+      }
     }
     loadData()
     // biome-ignore lint/correctness/useExhaustiveDependencies: setAllFeatures is stable from zustand
@@ -41,54 +52,58 @@ export function FeatureViewer() {
 
   const [filteredFeaturesList, setFilteredFeaturesList] = useState<GeoJSON.Feature[]>([])
 
-  // Get filtered features based on showOnlyUnevaluated
+  // Update filtered list when allFeatures changes (after initial load or data refresh)
   useEffect(() => {
     if (allFeatures.length === 0) return
 
-    const loadFiltered = async () => {
-      if (showOnlyUnevaluated) {
-        const features = await getUnevaluatedFeatures()
-        setFilteredFeaturesList(features)
-      } else {
-        setFilteredFeaturesList(allFeatures)
-      }
+    if (showOnlyUnevaluated) {
+      getUnevaluatedFeatures().then(setFilteredFeaturesList)
+    } else {
+      setFilteredFeaturesList(allFeatures)
     }
-    loadFiltered()
   }, [allFeatures, showOnlyUnevaluated])
 
-  // Load current feature
-  useEffect(() => {
-    if (featureId) {
-      // If featureId in URL, load that feature regardless of filter
-      const currentId = currentFeature?.properties?.id as string
-      if (currentId === featureId) {
-        // Already have the right feature loaded
-        return
-      }
-      setSelectedMapillaryId(null) // Reset mapillary selection when feature changes
-      getFeatureById(featureId).then((feature) => {
-        if (feature) {
-          setCurrentFeature(feature)
-        }
-      })
-    } else if (filteredFeaturesList.length > 0 && !currentFeature) {
-      // If no featureId and no current feature, show first from filtered list
-      const firstFeature = filteredFeaturesList[0]
-      const firstId = firstFeature.properties?.id as string
-      if (firstId) {
-        setSelectedMapillaryId(null) // Reset mapillary selection for new feature
-        setCurrentFeature(firstFeature)
-        setFeatureId(firstId)
-      }
+  const handleShowOnlyUnevaluatedChange = async (checked: boolean) => {
+    setShowOnlyUnevaluated(checked)
+    if (checked) {
+      const features = await getUnevaluatedFeatures()
+      setFilteredFeaturesList(features)
+    } else {
+      setFilteredFeaturesList(allFeatures)
     }
-  }, [
-    featureId,
-    filteredFeaturesList,
-    currentFeature,
-    setFeatureId,
-    setSelectedMapillaryId,
-    // biome-ignore lint/correctness/useExhaustiveDependencies: complex dependencies, manually managed
-  ])
+  }
+
+  // Load evaluation when feature changes (reacts to URL changes via useFeatureFromUrl)
+  // Feature lookup is synchronous from store, but evaluation loading is async
+  useEffect(() => {
+    if (!currentFeature) {
+      setCurrentEvaluation(null)
+      return
+    }
+
+    const featureId = currentFeature.properties?.id as string
+    if (!featureId) return
+
+    setSelectedMapillaryId(null)
+    getEvaluation(featureId).then((evalData) => {
+      if (evalData) {
+        setCurrentEvaluation({
+          status: evalData.status,
+          comment: evalData.comment,
+          source: evalData.source,
+          mapillaryId: evalData.mapillaryId,
+        })
+        setSource(evalData.mapillaryId ? 'mapillary' : (evalData.source || 'aerial_imagery'))
+        if (evalData.mapillaryId) {
+          setSelectedMapillaryId(evalData.mapillaryId)
+        }
+      } else {
+        setCurrentEvaluation(null)
+        const propMapillaryId = currentFeature.properties?.mapillary_id as string | undefined
+        setSource(propMapillaryId ? 'mapillary' : 'aerial_imagery')
+      }
+    })
+  }, [currentFeature, setSelectedMapillaryId, setSource])
 
   const currentIndex = useMemo(() => {
     if (!currentFeature) return -1
@@ -99,26 +114,34 @@ export function FeatureViewer() {
   const handleEvaluated = async () => {
     if (!currentFeature) return
 
-    // Trigger map update
     setEvaluationUpdateCounter((prev) => prev + 1)
 
-    // Refresh filtered features and evaluated count
     const newFiltered = showOnlyUnevaluated ? await getUnevaluatedFeatures() : allFeatures
     const newCount = await getEvaluatedCount()
     setFilteredFeaturesList(newFiltered)
     setEvaluatedCount(newCount)
 
-    // Find current feature's position in new filtered list
+    // Reload current evaluation after evaluation
     const currentId = currentFeature.properties?.id as string
+    const evalData = await getEvaluation(currentId)
+    if (evalData) {
+      setCurrentEvaluation({
+        status: evalData.status,
+        comment: evalData.comment,
+        source: evalData.source,
+        mapillaryId: evalData.mapillaryId,
+      })
+    }
+
     const currentPos = newFiltered.findIndex((f) => (f.properties?.id as string) === currentId)
 
-    // Advance to next feature
     if (newFiltered.length > 0) {
-      const nextIndex = currentPos >= 0 && currentPos < newFiltered.length - 1 ? currentPos + 1 : 0 // Wrap around or go to first if current not found
+      const nextIndex = currentPos >= 0 && currentPos < newFiltered.length - 1 ? currentPos + 1 : 0
       const nextFeature = newFiltered[nextIndex]
-      const nextId = nextFeature.properties?.id as string
-      setSelectedMapillaryId(null) // Reset mapillary selection for new feature
-      setFeatureId(nextId)
+      setSelectedMapillaryId(null)
+      const propMapillaryId = nextFeature.properties?.mapillary_id as string | undefined
+      setSource(propMapillaryId ? 'mapillary' : 'aerial_imagery')
+      setFeatureId(nextFeature)
     }
   }
 
@@ -126,18 +149,20 @@ export function FeatureViewer() {
     if (filteredFeaturesList.length === 0) return
     const prevIndex = currentIndex <= 0 ? filteredFeaturesList.length - 1 : currentIndex - 1
     const prevFeature = filteredFeaturesList[prevIndex]
-    const prevId = prevFeature.properties?.id as string
-    setSelectedMapillaryId(null) // Reset mapillary selection for new feature
-    setFeatureId(prevId)
+    setSelectedMapillaryId(null)
+    const propMapillaryId = prevFeature.properties?.mapillary_id as string | undefined
+    setSource(propMapillaryId ? 'mapillary' : 'aerial_imagery')
+    setFeatureId(prevFeature)
   }
 
   const handleNext = () => {
     if (filteredFeaturesList.length === 0) return
     const nextIndex = currentIndex >= filteredFeaturesList.length - 1 ? 0 : currentIndex + 1
     const nextFeature = filteredFeaturesList[nextIndex]
-    const nextId = nextFeature.properties?.id as string
-    setSelectedMapillaryId(null) // Reset mapillary selection for new feature
-    setFeatureId(nextId)
+    setSelectedMapillaryId(null)
+    const propMapillaryId = nextFeature.properties?.mapillary_id as string | undefined
+    setSource(propMapillaryId ? 'mapillary' : 'aerial_imagery')
+    setFeatureId(nextFeature)
   }
 
   const handleExport = async () => {
@@ -197,7 +222,7 @@ export function FeatureViewer() {
               <input
                 type="checkbox"
                 checked={showOnlyUnevaluated}
-                onChange={(e) => setShowOnlyUnevaluated(e.target.checked)}
+                onChange={(e) => handleShowOnlyUnevaluatedChange(e.target.checked)}
                 className="rounded"
               />
               <span className="text-gray-700 text-sm">Show only unevaluated</span>
@@ -228,6 +253,7 @@ export function FeatureViewer() {
           <EvaluationButtons
             featureId={currentFeature.properties?.id as string}
             featureProperties={currentFeature.properties || undefined}
+            initialEvaluation={currentEvaluation}
             onEvaluated={handleEvaluated}
           />
         </div>

@@ -25,7 +25,6 @@ export function getInitialMapStateFromFeature(feature: GeoJSON.Feature) {
       zoom,
     }
   } catch {
-    // Fallback for Point geometry
     if (feature.geometry.type === 'Point') {
       const coords = feature.geometry.coordinates as [number, number]
       return {
@@ -34,7 +33,6 @@ export function getInitialMapStateFromFeature(feature: GeoJSON.Feature) {
         zoom: 18,
       }
     }
-    // Fallback for LineString geometry
     if (feature.geometry.type === 'LineString' && feature.geometry.coordinates.length > 0) {
       const coords = feature.geometry.coordinates[0] as [number, number]
       return {
@@ -43,7 +41,6 @@ export function getInitialMapStateFromFeature(feature: GeoJSON.Feature) {
         zoom: 18,
       }
     }
-    // Default fallback
     return {
       longitude: 13.4,
       latitude: 52.5,

@@ -25,11 +25,8 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
     return null
   }
 
-  // Get initial map state from feature bbox
   const feature = { type: 'Feature' as const, geometry, properties: {} }
   const initialMapState = useMemo(() => getInitialMapStateFromFeature(feature), [geometry])
-
-  // Sync map state with URL (same as main map)
   const [mapState, setMapState] = useMapState(initialMapState)
 
   const viewState = mapState || initialMapState
@@ -39,7 +36,6 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
   const twoYearsAgo = Date.now() - 2 * 365 * 24 * 60 * 60 * 1000
   const threeYearsAgo = Date.now() - 3 * 365 * 24 * 60 * 60 * 1000
 
-  // Build filter based on selected time periods
   // Show images newer than the oldest selected threshold, or older if enabled
   const buildTimeFilter = useMemo(() => {
     const thresholds = [
@@ -54,7 +50,6 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
     }
 
     if (mapillaryTimePeriods.older && thresholds.length === 0) {
-      // Only show older data
       return ['<', ['get', 'captured_at'], threeYearsAgo] as FilterSpecification
     }
 
@@ -72,11 +67,9 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
     return ['>', ['get', 'captured_at'], oldestThreshold] as FilterSpecification
   }, [mapillaryTimePeriods, sixMonthsAgo, oneYearAgo, twoYearsAgo, threeYearsAgo])
 
-  // Build color step expression based on selected time periods
   const buildColorStep = useMemo(() => {
     const steps: unknown[] = ['step', ['get', 'captured_at']]
 
-    // Default color (oldest - 3+ years)
     if (mapillaryTimePeriods.older) {
       steps.push('#9ca3af', threeYearsAgo, '#9ca3af') // gray-400 for older data
     } else if (mapillaryTimePeriods.threeYears) {
@@ -97,7 +90,6 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
       steps.push(oneYearAgo, 'transparent')
     }
 
-    // Always show 6 months (dark green)
     steps.push(sixMonthsAgo, '#15803d')
 
     return steps as any

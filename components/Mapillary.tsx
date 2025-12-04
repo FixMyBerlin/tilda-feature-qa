@@ -8,15 +8,18 @@ type MapillaryProps = {
 }
 
 export function Mapillary({ mapillaryId, geometry }: MapillaryProps) {
-  const { selectedMapillaryId, setSelectedMapillaryId } = useFeatureStore()
+  const { selectedMapillaryId, setSelectedMapillaryId, setSource } = useFeatureStore()
 
-  // Prioritize selectedMapillaryId from store (user's current selection) over prop
-  // The prop is only used as a fallback/default when nothing is selected
   const effectiveMapillaryId = selectedMapillaryId || mapillaryId || undefined
   const isLineString = geometry.type === 'LineString'
 
   if (!effectiveMapillaryId && !isLineString) {
     return null
+  }
+
+  const handleImageClick = (imageId: string) => {
+    setSelectedMapillaryId(imageId)
+    setSource('mapillary')
   }
 
   return (
@@ -40,7 +43,7 @@ export function Mapillary({ mapillaryId, geometry }: MapillaryProps) {
       {isLineString && (
         <MapillaryMap
           geometry={geometry}
-          onImageClick={setSelectedMapillaryId}
+          onImageClick={handleImageClick}
           selectedImageId={effectiveMapillaryId || null}
         />
       )}

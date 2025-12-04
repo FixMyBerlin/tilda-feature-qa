@@ -27,14 +27,9 @@ export function MapView({ feature, evaluationUpdated }: MapViewProps) {
   const mapStyle = useMemo(() => createMapStyleFromLayer(currentLayer), [currentLayer])
   const featureId = feature.properties?.id as string
 
-  // Get initial map state from feature bbox
   const initialMapState = useMemo(() => getInitialMapStateFromFeature(feature), [feature])
-
-  // Sync map state with URL
   const [mapState, setMapState] = useMapState(initialMapState)
 
-  // Load all features with their evaluation status
-  // Reload when feature changes (evaluation might have changed)
   useEffect(() => {
     let cancelled = false
     const loadFeatures = async () => {
@@ -57,7 +52,6 @@ export function MapView({ feature, evaluationUpdated }: MapViewProps) {
         }
       } catch (err) {
         console.error('Error loading features for map:', err)
-        // Don't block map rendering if feature loading fails
       }
     }
     loadFeatures()
@@ -68,41 +62,38 @@ export function MapView({ feature, evaluationUpdated }: MapViewProps) {
     // biome-ignore lint/correctness/useExhaustiveDependencies: reload when feature or evaluation changes
   }, [feature, evaluationUpdated])
 
-  // Fit bounds when feature changes - only runs when feature prop changes
   const prevFeatureIdRef = useRef<string | null>(null)
   useEffect(() => {
-    if (mapRef.current && feature.geometry && prevFeatureIdRef.current !== featureId) {
-      prevFeatureIdRef.current = featureId
-      const map = mapRef.current.getMap()
-      try {
-        const bounds = bbox(feature)
-        map.fitBounds(
-          [
-            [bounds[0]!, bounds[1]!],
-            [bounds[2]!, bounds[3]!],
-          ] as unknown as [number, number, number, number],
-          {
-            padding: { top: 20, bottom: 20, left: 20, right: 20 },
-            duration: 0,
-          },
-        )
-        // Update URL with new bounds after fitBounds
-        const newCenter = map.getCenter()
-        const newZoom = map.getZoom()
-        setMapState({
-          longitude: newCenter.lng,
-          latitude: newCenter.lat,
-          zoom: newZoom,
-        })
-      } catch (err) {
-        console.error('Error fitting bounds:', err)
-        // Fallback: use initial map state
-        setMapState(initialMapState)
-      }
+    if (!mapRef.current || !feature.geometry) return
+    if (prevFeatureIdRef.current === featureId) return
+
+    prevFeatureIdRef.current = featureId
+    const map = mapRef.current.getMap()
+    try {
+      const bounds = bbox(feature)
+      map.fitBounds(
+        [
+          [bounds[0]!, bounds[1]!],
+          [bounds[2]!, bounds[3]!],
+        ] as unknown as [number, number, number, number],
+        {
+          padding: { top: 20, bottom: 20, left: 20, right: 20 },
+          duration: 0,
+        },
+      )
+      const newCenter = map.getCenter()
+      const newZoom = map.getZoom()
+      setMapState({
+        longitude: newCenter.lng,
+        latitude: newCenter.lat,
+        zoom: newZoom,
+      })
+    } catch (err) {
+      console.error('Error fitting bounds:', err)
+      setMapState(initialMapState)
     }
   }, [feature, featureId, setMapState, initialMapState])
 
-  // Separate features by evaluation status
   const goodFeatures = allFeaturesWithEval.filter(
     (f) => f.evaluation === 'good' && (f.properties?.id as string) !== featureId,
   )

@@ -56,7 +56,6 @@ class FeatureReviewDB extends Dexie {
 export const db = new FeatureReviewDB()
 
 export async function loadFeatures(geojson: GeoJSON.FeatureCollection) {
-  // First, filter out features without IDs
   const validFeatures = geojson.features.filter((feature) => {
     const id = feature.properties?.id as string
     if (!id) {
@@ -75,7 +74,6 @@ export async function loadFeatures(geojson: GeoJSON.FeatureCollection) {
   const { sortFeaturesBySpatialConnectivity } = await import('./geojson')
   const sortedFeatures = sortFeaturesBySpatialConnectivity(validFeatures)
 
-  // Create records with sort order
   const featureRecords: FeatureRecord[] = sortedFeatures.map((feature, index) => ({
     id: feature.properties?.id as string,
     feature,

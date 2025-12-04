@@ -15,7 +15,6 @@ export function sortFeaturesBySpatialConnectivity(features: GeoJSON.Feature[]) {
     adjacencyMap.set(i, new Set())
   }
 
-  // Compare endpoints between all pairs of LineString features
   for (let i = 0; i < features.length; i++) {
     const featureA = features[i]
     if (featureA.geometry.type !== 'LineString') continue
@@ -34,7 +33,6 @@ export function sortFeaturesBySpatialConnectivity(features: GeoJSON.Feature[]) {
       const startB = coordsB[0]
       const endB = coordsB[coordsB.length - 1]
 
-      // Check if any endpoints match exactly (fastest check)
       const exactMatch =
         (startA[0] === startB[0] && startA[1] === startB[1]) ||
         (startA[0] === endB[0] && startA[1] === endB[1]) ||
@@ -47,7 +45,6 @@ export function sortFeaturesBySpatialConnectivity(features: GeoJSON.Feature[]) {
         continue
       }
 
-      // Check if endpoints are close using turf distance (only if no exact match)
       const dist1 = distance(point(startA), point(startB))
       const dist2 = distance(point(startA), point(endB))
       const dist3 = distance(point(endA), point(startB))
@@ -83,7 +80,6 @@ export function sortFeaturesBySpatialConnectivity(features: GeoJSON.Feature[]) {
     }
   }
 
-  // Sort components by size (largest first) and within each component by ID
   components.sort((a, b) => b.length - a.length)
 
   const sortedFeatures: GeoJSON.Feature[] = []

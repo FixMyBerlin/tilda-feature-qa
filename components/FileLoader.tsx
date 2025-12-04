@@ -8,7 +8,6 @@ export function FileLoader({ onLoad }: { onLoad: () => void }) {
   const [dbAvailable, setDbAvailable] = useState<boolean | null>(null)
 
   useEffect(() => {
-    // Check if IndexedDB is available
     if (typeof window !== 'undefined' && 'indexedDB' in window) {
       setDbAvailable(true)
     } else {
@@ -32,11 +31,9 @@ export function FileLoader({ onLoad }: { onLoad: () => void }) {
       console.log('Reading file...')
       let text = await file.text()
 
-      // Strip git diff header if present (lines starting with @)
       if (text.trim().startsWith('@')) {
         console.log('Detected git diff format, stripping header...')
         const lines = text.split('\n')
-        // Find the first line that starts with { (the actual JSON)
         const jsonStartIndex = lines.findIndex((line) => line.trim().startsWith('{'))
         if (jsonStartIndex > 0) {
           text = lines.slice(jsonStartIndex).join('\n')
@@ -46,13 +43,11 @@ export function FileLoader({ onLoad }: { onLoad: () => void }) {
       console.log('File read, parsing JSON...')
       const parsed = JSON.parse(text)
 
-      // Validate with Zod
       const geojson = validateGeoJSON(parsed)
 
       console.log(`Loading ${geojson.features.length} features into IndexedDB...`)
       await loadFeatures(geojson)
       console.log('Features loaded successfully')
-      // Reset file input
       if (e.target) {
         e.target.value = ''
       }
@@ -60,7 +55,6 @@ export function FileLoader({ onLoad }: { onLoad: () => void }) {
     } catch (err) {
       console.error('Error loading file:', err)
       setError(err instanceof Error ? err.message : 'Failed to load file')
-      // Reset file input on error too
       if (e.target) {
         e.target.value = ''
       }
