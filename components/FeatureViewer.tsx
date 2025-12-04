@@ -217,7 +217,7 @@ export function FeatureViewer() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="border-b bg-white shadow-sm">
-        <div className="mx-auto flex max-w-7xl items-center justify-between py-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-app items-center justify-between py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
             <h1 className="font-bold text-xl">Feature Review</h1>
             <label className="flex items-center gap-2">
@@ -252,7 +252,7 @@ export function FeatureViewer() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl py-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-app py-4 sm:px-6 lg:px-8">
         <div className="mb-4">
           <EvaluationButtons
             featureId={currentFeature.properties?.id as string}

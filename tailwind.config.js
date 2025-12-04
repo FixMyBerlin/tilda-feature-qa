@@ -8,7 +8,11 @@ export default {
     './store/**/*.{js,ts,jsx,tsx}',
   ],
   theme: {
-    extend: {},
+    extend: {
+      maxWidth: {
+        'app': '2200px',
+      },
+    },
   },
   plugins: [],
 }
