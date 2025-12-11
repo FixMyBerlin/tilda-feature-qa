@@ -63,7 +63,7 @@ export function EvaluationButtons({
       await evaluateFeature(
         featureId,
         status,
-        comment || undefined,
+        comment.trim() || undefined,
         source,
         finalMapillaryId || undefined,
       )

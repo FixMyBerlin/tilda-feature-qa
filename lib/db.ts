@@ -150,7 +150,7 @@ export async function exportEvaluatedFeatures() {
         properties: {
           ...feature.properties,
           evaluation_status: evaluation.status,
-          evaluation_comment: evaluation.comment,
+          evaluation_comment: evaluation.comment || '',
           evaluation_source: evaluation.source,
           evaluation_mapillary_id: evaluation.mapillaryId,
           evaluation_timestamp: evaluation.timestamp,
