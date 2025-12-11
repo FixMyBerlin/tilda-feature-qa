@@ -1,17 +1,16 @@
+import type { GeoJSON } from 'geojson'
 import { useEffect, useState } from 'react'
-import { type EvaluationSource, evaluateFeature } from '../lib/db'
-import { statusTranslation } from '../lib/translations'
+import { type EvaluationSource, evaluateFeature, type PropertyEvaluation } from '../lib/db'
 import { useFeatureStore } from '../store/useFeatureStore'
+import { PropertyEvaluationTable } from './PropertyEvaluation'
 import { SourceSelector } from './SourceSelector'
 
 type EvaluationButtonsProps = {
-  featureId: string
-  featureProperties?: Record<string, unknown>
+  feature: GeoJSON.Feature
   initialEvaluation?: {
-    status: 'good' | 'bad'
-    comment?: string
     source?: EvaluationSource
     mapillaryId?: string
+    propertyEvaluations?: Record<string, PropertyEvaluation>
   } | null
   onEvaluated: () => void
   onPrev?: () => void
@@ -21,8 +20,7 @@ type EvaluationButtonsProps = {
 }
 
 export function EvaluationButtons({
-  featureId,
-  featureProperties,
+  feature,
   initialEvaluation,
   onEvaluated,
   onPrev,
@@ -30,24 +28,28 @@ export function EvaluationButtons({
   canNavigate = false,
   isEvaluated = false,
 }: EvaluationButtonsProps) {
-  const [comment, setComment] = useState(initialEvaluation?.comment || '')
-  const [currentEvaluation, setCurrentEvaluation] = useState(initialEvaluation || null)
+  const featureId = feature.properties?.id as string
+  const [propertyEvaluations, setPropertyEvaluations] = useState<
+    Record<string, PropertyEvaluation>
+  >(initialEvaluation?.propertyEvaluations || {})
   const { selectedMapillaryId, setSelectedMapillaryId, source, setSource } = useFeatureStore()
   const [loading, setLoading] = useState(false)
-  const [hasText, setHasText] = useState(!!initialEvaluation?.comment)
 
-  const propMapillaryId = featureProperties?.mapillary_id as string | undefined
+  const propMapillaryId = feature.properties?.mapillary_id as string | undefined
   const mapillaryId = selectedMapillaryId || propMapillaryId || undefined
 
   // Update local state when initialEvaluation prop changes (from parent)
   useEffect(() => {
-    setCurrentEvaluation(initialEvaluation || null)
-    setComment(initialEvaluation?.comment || '')
-    setHasText(!!initialEvaluation?.comment)
+    if (initialEvaluation?.propertyEvaluations) {
+      setPropertyEvaluations(initialEvaluation.propertyEvaluations)
+    }
     if (initialEvaluation?.mapillaryId) {
       setSelectedMapillaryId(initialEvaluation.mapillaryId)
     }
-  }, [initialEvaluation, setSelectedMapillaryId])
+    if (initialEvaluation?.source) {
+      setSource(initialEvaluation.source)
+    }
+  }, [initialEvaluation, setSelectedMapillaryId, setSource])
 
   const handleSourceChange = (newSource: EvaluationSource, newMapillaryId?: string) => {
     setSource(newSource)
@@ -56,23 +58,13 @@ export function EvaluationButtons({
     }
   }
 
-  const handleEvaluate = async (status: 'good' | 'bad') => {
+  const handleSave = async () => {
+    if (!featureId) return
+
     setLoading(true)
     try {
       const finalMapillaryId = source === 'mapillary' ? mapillaryId : undefined
-      await evaluateFeature(
-        featureId,
-        status,
-        comment.trim() || undefined,
-        source,
-        finalMapillaryId || undefined,
-      )
-      setCurrentEvaluation({
-        status,
-        comment: comment || undefined,
-        source,
-        mapillaryId: finalMapillaryId || undefined,
-      })
+      await evaluateFeature(featureId, source, propertyEvaluations, finalMapillaryId || undefined)
       onEvaluated()
     } catch (err) {
       console.error('Error evaluating feature:', err)
@@ -81,18 +73,10 @@ export function EvaluationButtons({
     }
   }
 
-  const handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value
-    setComment(value)
-    if (value.length > 0 && !hasText) {
-      setHasText(true)
-    } else if (value.length === 0) {
-      setHasText(false)
-    }
-  }
+  const hasEvaluations = Object.keys(propertyEvaluations).length > 0
 
   return (
-    <div className="space-y-3 rounded-lg bg-white p-4 shadow">
+    <div className="space-y-4 rounded-lg bg-white p-4 shadow">
       <div className="flex items-center justify-between">
         <SourceSelector
           featureId={featureId}
@@ -100,19 +84,8 @@ export function EvaluationButtons({
           currentMapillaryId={mapillaryId}
           onSourceChange={handleSourceChange}
         />
-        {isEvaluated && currentEvaluation ? (
-          <div className="flex items-center gap-2">
-            <span className="text-gray-600 text-sm">Existing evaluation:</span>
-            <span
-              className={`rounded px-2 py-1 font-medium text-sm ${
-                currentEvaluation.status === 'good'
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-red-100 text-red-700'
-              }`}
-            >
-              {statusTranslation[currentEvaluation.status]}
-            </span>
-          </div>
+        {isEvaluated && hasEvaluations ? (
+          <span className="rounded bg-green-100 px-2 py-1 text-green-700 text-sm">Evaluated</span>
         ) : (
           <span className="rounded bg-gray-100 px-2 py-1 text-gray-600 text-sm">
             Not yet evaluated
@@ -120,36 +93,19 @@ export function EvaluationButtons({
         )}
       </div>
 
-      {isEvaluated && currentEvaluation?.comment && (
-        <div className="rounded border border-gray-200 bg-gray-50 p-2 text-gray-700 text-sm">
-          {currentEvaluation.comment}
-        </div>
-      )}
+      <PropertyEvaluationTable
+        feature={feature}
+        onPropertyEvaluationsChange={setPropertyEvaluations}
+      />
 
       <div className="flex gap-3">
         <button
           type="button"
-          onClick={() => handleEvaluate('good')}
+          onClick={handleSave}
           disabled={loading}
-          className={`flex-1 rounded px-4 py-2 font-semibold transition-colors ${
-            currentEvaluation?.status === 'good'
-              ? 'bg-green-600 text-white'
-              : 'bg-green-100 text-green-700 hover:bg-green-200'
-          } disabled:opacity-50`}
+          className="flex-1 rounded bg-blue-600 px-4 py-2 font-semibold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          ✓ {statusTranslation.good}
-        </button>
-        <button
-          type="button"
-          onClick={() => handleEvaluate('bad')}
-          disabled={loading}
-          className={`flex-1 rounded px-4 py-2 font-semibold transition-colors ${
-            currentEvaluation?.status === 'bad'
-              ? 'bg-red-600 text-white'
-              : 'bg-red-100 text-red-700 hover:bg-red-200'
-          } disabled:opacity-50`}
-        >
-          ✗ {statusTranslation.bad}
+          Save Evaluation
         </button>
         {canNavigate && onPrev && (
           <button
@@ -173,15 +129,16 @@ export function EvaluationButtons({
         )}
       </div>
 
-      <div className="mt-3">
-        <textarea
-          value={comment}
-          onChange={handleCommentChange}
-          placeholder="Comment (optional)..."
-          className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-          rows={hasText ? 10 : 1}
-        />
-      </div>
+      <details className="rounded bg-gray-50">
+        <summary className="cursor-pointer px-3 py-2 font-semibold text-gray-700 text-sm hover:bg-gray-100">
+          All Properties
+        </summary>
+        <div className="max-h-96 overflow-y-auto p-3">
+          <pre className="whitespace-pre-wrap text-gray-700 text-xs">
+            {JSON.stringify(feature.properties, null, 2)}
+          </pre>
+        </div>
+      </details>
     </div>
   )
 }

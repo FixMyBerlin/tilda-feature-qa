@@ -1,6 +1,6 @@
 import { MAPTILER_STYLE_URL } from './constants'
 
-export interface BackgroundLayer {
+export type BackgroundLayer = {
   id: string
   name: string
   tiles?: string

@@ -3,16 +3,21 @@ import { useCallback, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { FeatureViewer } from './components/FeatureViewer'
 import { FileLoader } from './components/FileLoader'
-import { getAllFeatures } from './lib/db'
+import { getAllFeatures, getRegionSlug } from './lib/db'
+import { useFeatureStore } from './store/useFeatureStore'
 import './styles/output.css'
 
 function App() {
   const [hasFeatures, setHasFeatures] = useState<boolean | null>(null)
+  const setRegionSlug = useFeatureStore((state) => state.setRegionSlug)
 
   const checkFeatures = useCallback(async () => {
     const features = await getAllFeatures()
     setHasFeatures(features.length > 0)
-  }, [])
+    // Initialize region slug from database
+    const slug = await getRegionSlug()
+    setRegionSlug(slug)
+  }, [setRegionSlug])
 
   useEffect(() => {
     checkFeatures()

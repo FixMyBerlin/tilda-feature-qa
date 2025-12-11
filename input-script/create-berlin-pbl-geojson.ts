@@ -57,10 +57,7 @@ function buildMapillaryFullLink(lat: number, lng: number) {
   return `https://www.mapillary.com/app/?lat=${lat}&lng=${lng}&z=18.8&panos=true`
 }
 
-function getFirstPoint(geometry: {
-  type: string
-  coordinates: number[][] | number[][][]
-}): [number, number] | null {
+function getFirstPoint(geometry: { type: string; coordinates: number[][] | number[][][] }) {
   if (geometry.type === 'LineString' && Array.isArray(geometry.coordinates)) {
     const firstCoord = geometry.coordinates[0]
     if (Array.isArray(firstCoord) && firstCoord.length >= 2) {
@@ -78,7 +75,7 @@ function getFirstPoint(geometry: {
   return null
 }
 
-interface BikelaneRow {
+type BikelaneRow = {
   osm_type: string
   osm_id: string
   category: string
@@ -91,7 +88,7 @@ interface BikelaneRow {
   }
 }
 
-interface GeoJSONFeature {
+type GeoJSONFeature = {
   type: 'Feature'
   geometry: {
     type: string

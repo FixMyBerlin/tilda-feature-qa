@@ -6,6 +6,9 @@ alwaysApply: false
 ## TypeScript
 
 - Do not use explicit return types unless absolutely necessary to resolve typing issues.
+- Use type, not interface
+- No JSDocs comments that are covered by TS
+- Add comments only when they add context to the function or variable
 
 ## CSS / Tailwind CSS
 

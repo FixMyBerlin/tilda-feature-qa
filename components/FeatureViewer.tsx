@@ -3,7 +3,8 @@ import { useFeatureFromUrl } from '../hooks/useFeatureFromUrl'
 import {
   clearAllData,
   type EvaluationSource,
-  exportEvaluatedFeatures,
+  exportAllFeatures,
+  exportMapRouletteFeatures,
   getAllFeatures,
   getEvaluatedCount,
   getEvaluation,
@@ -17,10 +18,9 @@ import { PropertiesPanel } from './PropertiesPanel'
 export function FeatureViewer() {
   const [currentFeature, setFeatureId] = useFeatureFromUrl()
   const [currentEvaluation, setCurrentEvaluation] = useState<{
-    status: 'good' | 'bad'
-    comment?: string
     source?: EvaluationSource
     mapillaryId?: string
+    propertyEvaluations?: Record<string, { status: 'ok' | 'wrong'; comment?: string }>
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [evaluatedCount, setEvaluatedCount] = useState(0)
@@ -71,10 +71,9 @@ export function FeatureViewer() {
     getEvaluation(featureId).then((evalData) => {
       if (evalData) {
         setCurrentEvaluation({
-          status: evalData.status,
-          comment: evalData.comment,
           source: evalData.source,
           mapillaryId: evalData.mapillaryId,
+          propertyEvaluations: evalData.propertyEvaluations,
         })
         setSource(evalData.mapillaryId ? 'mapillary' : evalData.source || 'aerial_imagery')
         if (evalData.mapillaryId) {
@@ -107,10 +106,9 @@ export function FeatureViewer() {
     const evalData = await getEvaluation(currentId)
     if (evalData) {
       setCurrentEvaluation({
-        status: evalData.status,
-        comment: evalData.comment,
         source: evalData.source,
         mapillaryId: evalData.mapillaryId,
+        propertyEvaluations: evalData.propertyEvaluations,
       })
     }
 
@@ -158,19 +156,35 @@ export function FeatureViewer() {
     navigateToFeature(allFeatures[nextIndex])
   }
 
-  const handleExport = async () => {
-    const geojson = await exportEvaluatedFeatures()
-    const blob = new Blob([JSON.stringify(geojson, null, 2)], {
-      type: 'application/json',
-    })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'evaluated-features.geojson'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+  const downloadGeoJSON = async (
+    geojsonPromise: Promise<GeoJSON.FeatureCollection>,
+    filename: string,
+  ) => {
+    try {
+      const geojson = await geojsonPromise
+      const blob = new Blob([JSON.stringify(geojson, null, 2)], {
+        type: 'application/json',
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Error exporting:', err)
+      alert(err instanceof Error ? err.message : 'Failed to export. Please try again.')
+    }
+  }
+
+  const handleExportAll = () => {
+    downloadGeoJSON(exportAllFeatures(), 'all-features.geojson')
+  }
+
+  const handleExportMapRoulette = () => {
+    downloadGeoJSON(exportMapRouletteFeatures(), 'maproulette-features.geojson')
   }
 
   const handleReset = async () => {
@@ -225,10 +239,17 @@ export function FeatureViewer() {
             </button>
             <button
               type="button"
-              onClick={handleExport}
+              onClick={handleExportAll}
               className="rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
             >
-              Export Evaluated
+              Export All
+            </button>
+            <button
+              type="button"
+              onClick={handleExportMapRoulette}
+              className="rounded bg-green-600 px-4 py-2 text-sm text-white hover:bg-green-700"
+            >
+              Export MapRoulette
             </button>
           </div>
         </div>
@@ -237,8 +258,7 @@ export function FeatureViewer() {
       <div className="mx-auto max-w-app py-4 sm:px-6 lg:px-8">
         <div className="mb-4">
           <EvaluationButtons
-            featureId={currentFeature.properties?.id as string}
-            featureProperties={currentFeature.properties || undefined}
+            feature={currentFeature}
             initialEvaluation={currentEvaluation}
             onEvaluated={handleEvaluated}
             onPrev={handlePrev}

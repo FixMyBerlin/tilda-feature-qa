@@ -6,7 +6,7 @@ import { useBackgroundLayer } from '../hooks/useBackgroundLayer'
 import { useMapState } from '../hooks/useMapState'
 import { CURRENT_FEATURE_COLOR } from '../lib/constants'
 import { createMapStyleFromLayer } from '../lib/createMapStyle'
-import { getAllFeatures, getEvaluation } from '../lib/db'
+import { type EvaluationRecord, getAllFeatures, getEvaluation } from '../lib/db'
 import { getInitialMapStateFromFeature } from '../lib/mapUtils'
 import { useFeatureStore } from '../store/useFeatureStore'
 import { BackgroundLayerSelector } from './BackgroundLayerSelector'
@@ -17,6 +17,16 @@ type MapViewProps = {
 
 type FeatureWithEvaluation = GeoJSON.Feature & {
   evaluation?: 'good' | 'bad' | null
+}
+
+function getFeatureEvaluationStatus(
+  evaluation: EvaluationRecord | undefined,
+): 'good' | 'bad' | null {
+  if (!evaluation) return null
+  const propertyEvals = Object.values(evaluation.propertyEvaluations)
+  if (propertyEvals.length === 0) return null
+  // If any property is wrong, feature is bad; otherwise good
+  return propertyEvals.some((evalData) => evalData.status === 'wrong') ? 'bad' : 'good'
 }
 
 export function MapView({ feature }: MapViewProps) {
@@ -44,7 +54,7 @@ export function MapView({ feature }: MapViewProps) {
             const evaluation = await getEvaluation(featureId)
             return {
               ...f,
-              evaluation: evaluation?.status || null,
+              evaluation: getFeatureEvaluationStatus(evaluation),
             }
           }),
         )

@@ -6,6 +6,7 @@ type FeatureStore = {
   selectedMapillaryId: string | null
   source: EvaluationSource
   mapLoaded: boolean
+  regionSlug: string | null
   mapillaryTimePeriods: {
     sixMonths: boolean // Always true, can't be disabled
     oneYear: boolean
@@ -18,6 +19,7 @@ type FeatureStore = {
   setSelectedMapillaryId: (id: string | null) => void
   setSource: (source: EvaluationSource) => void
   setMapLoaded: (loaded: boolean) => void
+  setRegionSlug: (slug: string | null) => void
   setMapillaryTimePeriod: (
     period: 'oneYear' | 'twoYears' | 'threeYears' | 'older',
     enabled: boolean,
@@ -30,6 +32,7 @@ export const useFeatureStore = create<FeatureStore>((set) => ({
   selectedMapillaryId: null,
   source: 'aerial_imagery',
   mapLoaded: false,
+  regionSlug: null,
   mapillaryTimePeriods: {
     sixMonths: true, // Always on
     oneYear: true, // Default selected
@@ -42,6 +45,7 @@ export const useFeatureStore = create<FeatureStore>((set) => ({
   setSelectedMapillaryId: (id: string | null) => set({ selectedMapillaryId: id }),
   setSource: (source: EvaluationSource) => set({ source }),
   setMapLoaded: (loaded: boolean) => set({ mapLoaded: loaded }),
+  setRegionSlug: (slug: string | null) => set({ regionSlug: slug }),
   setMapillaryTimePeriod: (period, enabled) =>
     set((state) => ({
       mapillaryTimePeriods: { ...state.mapillaryTimePeriods, [period]: enabled },
