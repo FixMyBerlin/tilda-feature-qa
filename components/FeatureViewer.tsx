@@ -24,12 +24,7 @@ export function FeatureViewer() {
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [evaluatedCount, setEvaluatedCount] = useState(0)
-  const {
-    allFeatures,
-    setAllFeatures,
-    setSelectedMapillaryId,
-    setSource,
-  } = useFeatureStore()
+  const { allFeatures, setAllFeatures, setSelectedMapillaryId, setSource } = useFeatureStore()
 
   // Helper function to navigate to a feature
   const navigateToFeature = useCallback(
@@ -260,7 +255,6 @@ export function FeatureViewer() {
             <PropertiesPanel feature={currentFeature} />
           </div>
         </div>
-
       </div>
     </div>
   )

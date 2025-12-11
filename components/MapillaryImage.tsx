@@ -83,11 +83,5 @@ export function MapillaryImage({ imageId, className = 'w-full' }: MapillaryImage
     return null
   }
 
-  return (
-    <img
-      src={imageUrl}
-      alt={`Mapillary image ${imageId}`}
-      className={`max-h-[600px] object-contain ${className}`}
-    />
-  )
+  return <img src={imageUrl} alt="" className={`max-h-[600px] object-contain ${className}`} />
 }

@@ -10,7 +10,7 @@ export default {
   theme: {
     extend: {
       maxWidth: {
-        'app': '2200px',
+        app: '2200px',
       },
     },
   },

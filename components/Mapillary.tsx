@@ -9,7 +9,13 @@ type MapillaryProps = {
 }
 
 export function Mapillary({ mapillaryId, geometry }: MapillaryProps) {
-  const { selectedMapillaryId, setSelectedMapillaryId, setSource, useApiPreview, setUseApiPreview } = useFeatureStore()
+  const {
+    selectedMapillaryId,
+    setSelectedMapillaryId,
+    setSource,
+    useApiPreview,
+    setUseApiPreview,
+  } = useFeatureStore()
 
   const effectiveMapillaryId = selectedMapillaryId || mapillaryId || undefined
   const isLineString = geometry.type === 'LineString'

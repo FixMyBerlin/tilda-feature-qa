@@ -9,7 +9,7 @@
     "build:css": "tailwindcss -i ./styles/index.css -o ./styles/output.css",
     "build:app": "bun build ./index.html --outdir ./build --sourcemap",
     "build": "bun run build:css && bun run build:app",
-    "format": "biome format --write .",
+    "format": "biome format --write . && bun run lint:fix && bun run check:fix",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write --unsafe .",
     "check": "biome check .",

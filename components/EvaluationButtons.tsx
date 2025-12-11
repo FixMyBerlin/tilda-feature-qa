@@ -102,9 +102,9 @@ export function EvaluationButtons({
         />
         {isEvaluated && currentEvaluation ? (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600">Existing evaluation:</span>
+            <span className="text-gray-600 text-sm">Existing evaluation:</span>
             <span
-              className={`rounded px-2 py-1 text-sm font-medium ${
+              className={`rounded px-2 py-1 font-medium text-sm ${
                 currentEvaluation.status === 'good'
                   ? 'bg-green-100 text-green-700'
                   : 'bg-red-100 text-red-700'
@@ -114,12 +114,14 @@ export function EvaluationButtons({
             </span>
           </div>
         ) : (
-          <span className="rounded bg-gray-100 px-2 py-1 text-sm text-gray-600">Not yet evaluated</span>
+          <span className="rounded bg-gray-100 px-2 py-1 text-gray-600 text-sm">
+            Not yet evaluated
+          </span>
         )}
       </div>
 
       {isEvaluated && currentEvaluation?.comment && (
-        <div className="rounded border border-gray-200 bg-gray-50 p-2 text-sm text-gray-700">
+        <div className="rounded border border-gray-200 bg-gray-50 p-2 text-gray-700 text-sm">
           {currentEvaluation.comment}
         </div>
       )}
