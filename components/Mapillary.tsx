@@ -1,4 +1,7 @@
+import { useMemo } from 'react'
+import { useMapillaryImageLocations } from '../hooks/useMapillaryImageLocations'
 import { useFeatureStore } from '../store/useFeatureStore'
+import type { ImageGroup } from './MapillaryImageGrid'
 import { MapillaryEmbed } from './MapillaryEmbed'
 import { MapillaryImage } from './MapillaryImage'
 import { MapillaryMap } from './MapillaryMap'
@@ -6,9 +9,10 @@ import { MapillaryMap } from './MapillaryMap'
 type MapillaryProps = {
   mapillaryId: string | null | undefined
   geometry: GeoJSON.Geometry
+  imageGroups?: ImageGroup[]
 }
 
-export function Mapillary({ mapillaryId, geometry }: MapillaryProps) {
+export function Mapillary({ mapillaryId, geometry, imageGroups = [] }: MapillaryProps) {
   const {
     selectedMapillaryId,
     setSelectedMapillaryId,
@@ -16,6 +20,33 @@ export function Mapillary({ mapillaryId, geometry }: MapillaryProps) {
     useApiPreview,
     setUseApiPreview,
   } = useFeatureStore()
+
+  // Collect all image IDs from all groups with their cumulative indices and types
+  const allImageIds = useMemo(() => {
+    let cumulativeIndex = 0
+    return imageGroups.flatMap((group) =>
+      group.ids.map((id) => {
+        const data = { id, index: cumulativeIndex, type: group.type }
+        cumulativeIndex++
+        return data
+      }),
+    )
+  }, [imageGroups])
+
+  // Fetch locations for all images
+  const { locations } = useMapillaryImageLocations(allImageIds.map((img) => img.id))
+
+  // Add index and type to locations
+  const imageLocations = useMemo(() => {
+    return locations.map((loc) => {
+      const imgData = allImageIds.find((img) => img.id === loc.id)
+      return {
+        ...loc,
+        index: imgData?.index ?? loc.index,
+        type: imgData?.type ?? 'general',
+      }
+    })
+  }, [locations, allImageIds])
 
   const effectiveMapillaryId = selectedMapillaryId || mapillaryId || undefined
   const isLineString = geometry.type === 'LineString'
@@ -70,6 +101,7 @@ export function Mapillary({ mapillaryId, geometry }: MapillaryProps) {
           geometry={geometry}
           onImageClick={handleImageClick}
           selectedImageId={effectiveMapillaryId || null}
+          imageLocations={imageLocations}
         />
       )}
     </div>

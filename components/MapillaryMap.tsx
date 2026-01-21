@@ -1,9 +1,10 @@
 import type { FilterSpecification } from 'maplibre-gl'
 import { useMemo, useState } from 'react'
 import type { MapLayerMouseEvent } from 'react-map-gl/maplibre'
-import MapComponent, { Layer, Source } from 'react-map-gl/maplibre'
+import MapComponent, { Layer, Marker, Source } from 'react-map-gl/maplibre'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useBackgroundLayer } from '../hooks/useBackgroundLayer'
+import { useMapillaryImageLocations } from '../hooks/useMapillaryImageLocations'
 import { useMapState } from '../hooks/useMapState'
 import { CURRENT_FEATURE_COLOR, MAPILLARY_ACCESS_TOKEN } from '../lib/constants'
 import { createMapStyleFromLayer } from '../lib/createMapStyle'
@@ -14,9 +15,10 @@ type MapillaryMapProps = {
   geometry: GeoJSON.Geometry
   onImageClick: (imageId: string) => void
   selectedImageId: string | null
+  imageLocations?: Array<{ id: string; lng: number; lat: number; index: number; type: 'general' | 'traffic_sign' }>
 }
 
-export function MapillaryMap({ geometry, onImageClick, selectedImageId }: MapillaryMapProps) {
+export function MapillaryMap({ geometry, onImageClick, selectedImageId, imageLocations = [] }: MapillaryMapProps) {
   const { currentLayer } = useBackgroundLayer()
   const mapStyle = useMemo(() => createMapStyleFromLayer(currentLayer), [currentLayer])
   const { mapillaryTimePeriods, setMapillaryTimePeriod } = useFeatureStore()
@@ -429,6 +431,31 @@ export function MapillaryMap({ geometry, onImageClick, selectedImageId }: Mapill
               }
             />
           </Source>
+
+          {/* Custom markers for image locations with numbers */}
+          {imageLocations.map((location) => (
+            <Marker
+              key={location.id}
+              longitude={location.lng}
+              latitude={location.lat}
+              anchor="center"
+              onClick={(e) => {
+                e.originalEvent.stopPropagation()
+                onImageClick(location.id)
+              }}
+            >
+              <div
+                className="flex size-8 cursor-pointer items-center justify-center rounded-full font-bold text-white shadow-lg transition-transform hover:scale-110"
+                style={{
+                  backgroundColor: location.type === 'traffic_sign' ? '#f59e0b' : '#3b82f6',
+                  border: '2px solid white',
+                }}
+                title={`Bild ${location.index + 1}`}
+              >
+                {location.index + 1}
+              </div>
+            </Marker>
+          ))}
         </MapComponent>
 
         {/* Loading spinner */}

@@ -1,12 +1,14 @@
 import { buildOsmLink, buildTildaLink } from '../lib/urlUtils'
+import type { ImageGroup } from './MapillaryImageGrid'
 import { Mapillary } from './Mapillary'
 
 type PropertiesPanelProps = {
   feature: GeoJSON.Feature
+  imageGroups?: ImageGroup[]
   children?: (links: { osmLink: string | null; tildaLink: string | null }) => React.ReactNode
 }
 
-export function PropertiesPanel({ feature, children }: PropertiesPanelProps) {
+export function PropertiesPanel({ feature, imageGroups = [], children }: PropertiesPanelProps) {
   const osmId = feature.properties?.osm_id as string | undefined
   const osmLink = osmId ? buildOsmLink(osmId) : null
   const tildaLink = buildTildaLink(feature.geometry)
@@ -48,6 +50,7 @@ export function PropertiesPanel({ feature, children }: PropertiesPanelProps) {
         key={feature.properties?.id}
         mapillaryId={feature.properties?.mapillary_id}
         geometry={feature.geometry}
+        imageGroups={imageGroups}
       />
     </div>
   )

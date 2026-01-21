@@ -12,6 +12,8 @@ import {
 } from '../lib/db'
 import { useFeatureStore } from '../store/useFeatureStore'
 import { EvaluationButtons } from './EvaluationButtons'
+import type { ImageGroup } from './MapillaryImageGrid'
+import { MapillaryImageGrid } from './MapillaryImageGrid'
 import { MapView } from './MapView'
 import { PropertiesPanel } from './PropertiesPanel'
 
@@ -24,6 +26,7 @@ export function FeatureViewer() {
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [evaluatedCount, setEvaluatedCount] = useState(0)
+  const [imageGroups, setImageGroups] = useState<ImageGroup[]>([])
   const { allFeatures, setAllFeatures, setSelectedMapillaryId, setSource } = useFeatureStore()
 
   // Helper function to navigate to a feature
@@ -268,11 +271,17 @@ export function FeatureViewer() {
           />
         </div>
         <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="relative h-96 lg:h-[600px]">
-            <MapView feature={currentFeature} />
+          <div className="space-y-4">
+            <div className="relative h-96 lg:h-[600px]">
+              <MapView feature={currentFeature} />
+            </div>
+            <MapillaryImageGrid
+              properties={currentFeature.properties || undefined}
+              onImageGroupsChange={setImageGroups}
+            />
           </div>
           <div className="space-y-4">
-            <PropertiesPanel feature={currentFeature} />
+            <PropertiesPanel feature={currentFeature} imageGroups={imageGroups} />
           </div>
         </div>
       </div>
