@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 
 type MapillaryImageGridProps = {
   properties?: Record<string, unknown>
@@ -79,11 +79,12 @@ export function MapillaryImageGrid({ properties, onImageGroupsChange }: Mapillar
   }, [properties])
 
   // Notify parent component of image groups
-  useMemo(() => {
+  useEffect(() => {
     if (onImageGroupsChange) {
       onImageGroupsChange(imageGroups)
     }
-  }, [imageGroups, onImageGroupsChange])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageGroups])
 
   if (imageGroups.length === 0) {
     return null

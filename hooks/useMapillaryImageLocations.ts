@@ -24,6 +24,9 @@ export function useMapillaryImageLocations(imageIds: string[]) {
   const [locations, setLocations] = useState<MapillaryImageLocation[]>([])
   const [loading, setLoading] = useState(false)
 
+  // Serialize imageIds to string for stable comparison
+  const imageIdsKey = imageIds.join(',')
+
   useEffect(() => {
     if (imageIds.length === 0) {
       setLocations([])
@@ -88,7 +91,7 @@ export function useMapillaryImageLocations(imageIds: string[]) {
     return () => {
       cancelled = true
     }
-  }, [imageIds])
+  }, [imageIdsKey, imageIds])
 
   return { locations, loading }
 }

@@ -4,6 +4,9 @@ import { useEffect, useState } from 'react'
 import '@git-diff-view/react/styles/diff-view.css'
 import { getPropertyEvaluations, type PropertyEvaluation } from '../lib/db'
 
+// Configuration: Properties starting with these prefixes will be hidden from evaluation
+const EXCLUDED_PROPERTY_PREFIXES = ['tilda_']
+
 type PropertyChange = {
   baseName: string
   oldValue: string | number | null
@@ -90,6 +93,14 @@ export function PropertyEvaluationTable({
 
     // Create PropertyChange objects
     for (const baseName of baseNames) {
+      // Skip properties with excluded prefixes
+      const isExcluded = EXCLUDED_PROPERTY_PREFIXES.some(prefix => 
+        baseName.toLowerCase().startsWith(prefix.toLowerCase())
+      )
+      if (isExcluded) {
+        continue
+      }
+
       const oldKey = `${baseName}_OLD`
       const newKey = `${baseName}_NEW`
       const oldValue = props[oldKey] !== undefined ? props[oldKey] : null
@@ -137,6 +148,13 @@ export function PropertyEvaluationTable({
       }
       const initialized: Record<string, PropertyEvaluation> = {}
       for (const baseName of baseNames) {
+        // Skip properties with excluded prefixes
+        const isExcluded = EXCLUDED_PROPERTY_PREFIXES.some(prefix => 
+          baseName.toLowerCase().startsWith(prefix.toLowerCase())
+        )
+        if (isExcluded) {
+          continue
+        }
         initialized[baseName] = existing[baseName] || { status: 'ok' }
       }
       setEvaluations(initialized)

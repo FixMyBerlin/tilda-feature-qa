@@ -33,8 +33,11 @@ export function Mapillary({ mapillaryId, geometry, imageGroups = [] }: Mapillary
     )
   }, [imageGroups])
 
+  // Memoize the image IDs array to prevent unnecessary API calls
+  const imageIdsArray = useMemo(() => allImageIds.map((img) => img.id), [allImageIds])
+
   // Fetch locations for all images
-  const { locations } = useMapillaryImageLocations(allImageIds.map((img) => img.id))
+  const { locations } = useMapillaryImageLocations(imageIdsArray)
 
   // Add index and type to locations
   const imageLocations = useMemo(() => {
