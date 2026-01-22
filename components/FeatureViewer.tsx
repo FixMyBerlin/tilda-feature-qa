@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import toast from 'react-hot-toast'
 import { useFeatureFromUrl } from '../hooks/useFeatureFromUrl'
 import {
   clearAllData,
@@ -182,12 +183,18 @@ export function FeatureViewer() {
     }
   }
 
-  const handleExportAll = () => {
-    downloadGeoJSON(exportAllFeatures(), 'all-features.geojson')
+  const handleExportAll = async () => {
+    const geojson = await exportAllFeatures()
+    const count = geojson.features.length
+    downloadGeoJSON(Promise.resolve(geojson), 'all-features.geojson')
+    toast.success(`${count} Features exported`, { position: 'top-center' })
   }
 
-  const handleExportMapRoulette = () => {
-    downloadGeoJSON(exportMapRouletteFeatures(), 'maproulette-features.geojson')
+  const handleExportMapRoulette = async () => {
+    const geojson = await exportMapRouletteFeatures()
+    const count = geojson.features.length
+    downloadGeoJSON(Promise.resolve(geojson), 'maproulette-features.geojson')
+    toast.success(`${count} Features exported`, { position: 'top-center' })
   }
 
   const handleReset = async () => {

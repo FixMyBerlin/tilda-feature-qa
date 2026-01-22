@@ -1,6 +1,7 @@
 import { NuqsAdapter } from 'nuqs/adapters/react'
 import { useCallback, useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { Toaster } from 'react-hot-toast'
 import { FeatureViewer } from './components/FeatureViewer'
 import { FileLoader } from './components/FileLoader'
 import { getAllFeatures, getRegionSlug } from './lib/db'
@@ -37,6 +38,7 @@ function App() {
 
   return (
     <NuqsAdapter>
+      <Toaster position="top-right" />
       {hasFeatures ? <FeatureViewer /> : <FileLoader onLoad={handleLoad} />}
     </NuqsAdapter>
   )
