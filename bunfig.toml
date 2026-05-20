@@ -1,2 +1,6 @@
+# Do not install package versions published within the last 5 days (supply-chain posture).
+[install]
+minimumReleaseAge = 432000
+
 [build]
 sourcemap = "external"
